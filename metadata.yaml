@@ -3,7 +3,7 @@ display_name: Edge_TTS
 desc: 系统依赖 ffmpeg（必须）。可自定义聊天大模型 - 支持 WebUI 控制界面、自定义 API（对话与识图共用同一地址/Key/仅模型名不同）、人格库管理（可自定义人格名字/介绍/设定）、长期记忆（文件管理，可单条删除）、电脑操作权限、好感度面板（按用户/群记录好感度，AI 根据好感度调整语气）与私人陪护（可设置主人，对非主人避免过度言语亲密）的聊天陪护语音插件。
 help: 发送 /聊天菜单 查看功能菜单，或 /开启聊天 开启对话。全部配置请在插件的 WebUI 控制界面中修改。
 icon: logo.png
-version: 2.8.6
+version: 2.8.7
 category: 聊天 陪护 语音
 author: darling-148
 repo: https://github.com/darling-148/astrbot_plugin_edge_tts.git

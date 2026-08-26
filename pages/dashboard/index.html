@@ -1,0 +1,931 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Edge_TTS</title>
+    <style>
+      :root {
+        --bg: #f5f6fa;
+        --card: #ffffff;
+        --text: #1a1a2e;
+        --muted: #6b7280;
+        --border: #e5e7eb;
+        --primary: #4f6ef2;
+        --primary-dark: #3b57d9;
+        --green: #10b981;
+        --red: #ef4444;
+        --amber: #f59e0b;
+        --radius: 12px;
+      }
+      [data-theme="dark"] {
+        --bg: #14151f;
+        --card: #1e1f2c;
+        --text: #e6e6ee;
+        --muted: #9ca3af;
+        --border: #2c2d3d;
+        --primary: #6b86f5;
+        --primary-dark: #5773e8;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+          "Microsoft YaHei", sans-serif;
+        line-height: 1.6;
+      }
+      .container {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 24px 16px 48px;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 20px;
+      }
+      header h1 {
+        font-size: 22px;
+        margin: 0;
+      }
+      header .sub {
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .status-pills {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .pill {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 4px 12px;
+        font-size: 12px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        display: inline-block;
+      }
+      .dot.on {
+        background: var(--green);
+      }
+      .dot.off {
+        background: var(--red);
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 20px;
+        margin-bottom: 16px;
+      }
+      .card h2 {
+        font-size: 16px;
+        margin: 0 0 16px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid var(--border);
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 14px;
+      }
+      .sub-block {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 12px 14px;
+      }
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .field label {
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .field input,
+      .field select,
+      .field textarea {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        color: var(--text);
+        border-radius: 8px;
+        padding: 9px 12px;
+        font-size: 14px;
+        outline: none;
+        transition: border-color 0.2s;
+      }
+      .field input:focus,
+      .field select:focus,
+      .field textarea:focus {
+        border-color: var(--primary);
+      }
+      .field input:disabled,
+      .field select:disabled,
+      .field textarea:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+      .field textarea {
+        min-height: 90px;
+        resize: vertical;
+        font-family: inherit;
+      }
+      .field .hint {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .switch-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 8px 0;
+      }
+      .switch-row .info {
+        font-size: 14px;
+      }
+      .switch-row .info .hint {
+        display: block;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .switch {
+        position: relative;
+        width: 46px;
+        height: 26px;
+        flex-shrink: 0;
+      }
+      .switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+      .slider {
+        position: absolute;
+        cursor: pointer;
+        inset: 0;
+        background: var(--border);
+        border-radius: 999px;
+        transition: background 0.2s;
+      }
+      .slider::before {
+        content: "";
+        position: absolute;
+        height: 20px;
+        width: 20px;
+        left: 3px;
+        top: 3px;
+        background: #fff;
+        border-radius: 50%;
+        transition: transform 0.2s;
+      }
+      .switch input:checked + .slider {
+        background: var(--primary);
+      }
+      .switch input:checked + .slider::before {
+        transform: translateX(20px);
+      }
+      .btn {
+        background: var(--primary);
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        padding: 10px 22px;
+        font-size: 14px;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+      .btn:hover {
+        background: var(--primary-dark);
+      }
+      .btn.secondary {
+        background: var(--bg);
+        color: var(--text);
+        border: 1px solid var(--border);
+      }
+      .btn.secondary:hover {
+        border-color: var(--primary);
+        color: var(--primary);
+      }
+      .btn.danger {
+        background: var(--red);
+      }
+      .btn.danger:hover {
+        opacity: 0.85;
+      }
+      .btn.small {
+        padding: 5px 12px;
+        font-size: 12px;
+        border-radius: 6px;
+      }
+      .btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 6px;
+      }
+      .toast {
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--card);
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 12px 20px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+        z-index: 1000;
+        opacity: 0;
+        transition: opacity 0.3s;
+        max-width: 90vw;
+      }
+      .toast.show {
+        opacity: 1;
+      }
+      .modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.45);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 2000;
+      }
+      .modal-overlay.show {
+        display: flex;
+      }
+      .modal-box {
+        background: var(--card);
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 20px;
+        width: min(400px, 90vw);
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
+      }
+      .modal-box .modal-text {
+        margin-bottom: 16px;
+        font-size: 14px;
+        line-height: 1.6;
+      }
+      .modal-box .actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin: 0;
+      }
+      .memory-item {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 10px 14px;
+        margin-bottom: 8px;
+        font-size: 13px;
+        word-break: break-all;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 12px;
+      }
+      .memory-item .body {
+        flex: 1;
+        min-width: 0;
+      }
+      .memory-item .uid {
+        color: var(--muted);
+        font-size: 11px;
+        margin-top: 4px;
+      }
+      .memory-item .del {
+        flex-shrink: 0;
+      }
+      .memory-scroll {
+        max-height: 260px;
+        overflow-y: auto;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 8px;
+        margin-top: 12px;
+      }
+      .memory-scroll::-webkit-scrollbar {
+        width: 8px;
+      }
+      .memory-scroll::-webkit-scrollbar-thumb {
+        background: var(--border);
+        border-radius: 4px;
+      }
+      .persona-row {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 12px 14px;
+        margin-bottom: 8px;
+      }
+      .persona-row .top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .persona-row .pname {
+        font-weight: 600;
+        font-size: 14px;
+      }
+      .persona-row .pname .badge {
+        font-weight: 400;
+        font-size: 11px;
+        color: var(--primary);
+        border: 1px solid var(--primary);
+        border-radius: 999px;
+        padding: 0 8px;
+        margin-left: 6px;
+      }
+      .persona-row .pname .current-badge {
+        color: var(--green);
+        border-color: var(--green);
+      }
+      .persona-row .desc {
+        color: var(--muted);
+        font-size: 12px;
+        margin-top: 4px;
+      }
+      .persona-row .opts {
+        display: flex;
+        gap: 8px;
+        flex-shrink: 0;
+      }
+      .persona-form {
+        background: var(--bg);
+        border: 1px dashed var(--border);
+        border-radius: 8px;
+        padding: 14px;
+        margin-bottom: 12px;
+        display: none;
+      }
+      .persona-form.show {
+        display: block;
+      }
+      .persona-form .grid {
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        margin-bottom: 10px;
+      }
+      .empty {
+        color: var(--muted);
+        font-size: 13px;
+        text-align: center;
+        padding: 20px 0;
+      }
+      .current-persona {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 14px;
+      }
+      .current-persona select {
+        min-width: 200px;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        color: var(--text);
+        border-radius: 8px;
+        padding: 9px 12px;
+        font-size: 14px;
+      }
+      .current-persona-name {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--accent, #4f7cff);
+        background: rgba(79, 124, 255, 0.12);
+        border: 1px solid rgba(79, 124, 255, 0.35);
+        border-radius: 8px;
+        padding: 6px 12px;
+        white-space: nowrap;
+      }
+      /* ---------- 底部菜单栏分页 ---------- */
+      .views {
+        display: block;
+      }
+      .view {
+        display: none;
+      }
+      .view.active {
+        display: block;
+      }
+      body {
+        padding-bottom: 86px;
+      }
+      .bottom-nav {
+        position: fixed;
+        left: 10px;
+        right: 10px;
+        bottom: 8px;
+        z-index: 20;
+        display: flex;
+        align-items: stretch;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+      }
+      .nav-item {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 2px;
+        border: none;
+        background: transparent;
+        color: var(--muted);
+        padding: 5px 2px;
+        cursor: pointer;
+        border-radius: 10px;
+        transition: color 0.2s, background 0.2s;
+      }
+      .nav-item svg {
+        width: 20px;
+        height: 20px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.8;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .nav-title {
+        font-size: 12px;
+        line-height: 1.15;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
+      }
+      .nav-sub {
+        font-size: 9px;
+        line-height: 1.15;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
+        opacity: 0.75;
+      }
+      .nav-item:hover {
+        color: var(--text);
+      }
+      .nav-item.active {
+        color: var(--primary);
+        background: rgba(79, 110, 242, 0.12);
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>Edge_TTS</h1>
+        <div class="status-pills" id="statusPills"></div>
+      </header>
+
+      <div class="views">
+
+      <div class="card view active" data-view="model">
+        <h2>模型与 API</h2>
+        <div class="sub-block" style="margin-bottom: 14px">
+          <div style="font-size: 13px; color: var(--muted); margin-bottom: 4px">
+            当前生效对话模型：<strong id="effectiveModel" style="color: var(--text)">加载中...</strong>
+          </div>
+          <div style="font-size: 13px; color: var(--muted)">
+            当前生效识图模型：<strong id="effectiveVisionModel" style="color: var(--text)">加载中...</strong>
+          </div>
+          <span class="hint" style="font-size: 12px">默认采用 AstrBot 管理面板（配置文件）中配置的模型，面板中修改模型后本插件自动跟随，无需重复配置。使用语音功能需要安装 ffmpeg，安装步骤文档（README）里面有介绍。</span>
+          <div id="ffmpegWarn" style="font-size: 12px; margin-top: 6px; color: var(--red); display: none">⚠️ 未检测到系统 ffmpeg，语音播报可能无法正常发送。电脑版请参照 README 安装 ffmpeg；Docker 请使用已内置 ffmpeg 的官方镜像。</div>
+        </div>
+        <div class="switch-row">
+          <div class="info">
+            启用对话模型
+            <span class="hint">关闭后不使用对话模型（不进行 AI 回复）</span>
+          </div>
+          <label class="switch"><input type="checkbox" id="chat_model_enable" /><span class="slider"></span></label>
+        </div>
+        <div class="switch-row">
+          <div class="info">
+            启用识图（视觉）模型
+            <span class="hint">关闭后不使用识图模型，收到图片时不进行图片分析</span>
+          </div>
+          <label class="switch"><input type="checkbox" id="vision_model_enable" /><span class="slider"></span></label>
+        </div>
+        <div class="switch-row" style="margin-top: 14px">
+          <div class="info">
+            开启自定义模型
+            <span class="hint">默认关闭；开启后使用下方自定义 API 地址与模型名称（对话与识图共用同一地址与 Key，仅模型名不同），关闭则使用 AstrBot 配置的模型；开启但未填写 API 地址与 Key 时视为未配置，不显示也不调用 AstrBot 系统模型</span>
+          </div>
+          <label class="switch"><input type="checkbox" id="custom_model_enable" /><span class="slider"></span></label>
+        </div>
+        <div class="grid" style="margin-top: 16px">
+          <div class="field">
+            <label>模型 API 接口地址（可选项，对话与识图共用）</label>
+            <input id="api_base_url" type="text" placeholder="https://open.bigmodel.cn/api/paas/v4" />
+            <span class="hint">OpenAI 兼容格式；可填通用端点（如 …/v4，自动补全 /chat/completions，同一地址可接入其它品牌/多个模型，只需填对应模型名）或填完整端点；对话与识图共用同一地址与 Key，仅模型名称不同；留空采用 AstrBot 配置</span>
+          </div>
+          <div class="field">
+            <label>模型 API Key</label>
+            <input id="api_key" type="text" autocomplete="off" />
+          </div>
+          <div class="field">
+            <label>对话模型名称（可选）</label>
+            <input id="chat_model" type="text" placeholder="例如 glm-4.5-flash" />
+            <span class="hint">自定义 API 模式指定对话模型名；AstrBot 提供商模式可覆盖其默认模型，留空使用默认</span>
+          </div>
+          <div class="field">
+            <label>识图模型名称（可选）</label>
+            <input id="vision_model" type="text" placeholder="例如 glm-4.6v-flash" />
+            <span class="hint">用于分析图片与图片表情包的模型名；与对话共用 API 地址与 Key，留空使用默认</span>
+          </div>
+        </div>
+        <div class="actions" style="margin-top: 16px">
+          <button class="btn" id="btnSaveModel">保存模型配置</button>
+          <button class="btn" id="btnTestCustom">自定义模型测试</button>
+          <button class="btn" id="btnTestAstrbot">AstrBot 模型测试</button>
+        </div>
+      </div>
+
+      <div class="card view" data-view="persona">
+        <h2>人格库（可自定义名字 / 介绍 / 设定）</h2>
+        <div class="current-persona">
+          <span class="field label" style="font-size: 13px; color: var(--muted)">当前人格：</span>
+          <span id="currentPersonaName" class="current-persona-name">-</span>
+          <select id="persona"></select>
+          <button class="btn small" id="btnSelectPersona">设为当前</button>
+        </div>
+        <div id="personaList"><div class="empty">加载中...</div></div>
+        <div class="actions" style="margin-top: 12px">
+          <button class="btn" id="btnNewPersona">+ 新增人格</button>
+        </div>
+        <div class="switch-row" style="margin-top: 12px">
+          <div class="info">
+            启用默认 AstrBot 人格
+            <span class="hint">开启后关闭插件人格库，不注入任何人格设定，直接使用 AstrBot 侧人格</span>
+          </div>
+          <label class="switch"><input type="checkbox" id="use_astrbot_default_persona" /><span class="slider"></span></label>
+        </div>
+        <div class="field" style="margin-top: 12px">
+          <label>选择 AstrBot 人格</label>
+          <select id="astrbot_persona"></select>
+          <span class="hint">跟随AstrBot配置文件当前人格，选择astrbot可用人格或者使用插件人格和添加你喜欢的人格</span>
+        </div>
+        <div class="actions" style="margin-top: 12px">
+          <button class="btn" id="btnSavePersonaConfig">保存人格配置</button>
+        </div>
+        <div class="persona-form" id="personaForm">
+          <div class="grid">
+            <div class="field">
+              <label>人格名字</label>
+              <input id="pf_name" type="text" placeholder="例如：国学大师" />
+            </div>
+            <div class="field">
+              <label>人格介绍</label>
+              <input id="pf_desc" type="text" placeholder="一句话介绍该人格" />
+            </div>
+          </div>
+          <div class="field">
+            <label>人格设定 Prompt（决定语气与行为）</label>
+            <textarea id="pf_prompt" placeholder="在此编写完整的人格设定，如性格、语气、回复风格等"></textarea>
+          </div>
+          <div class="actions">
+            <button class="btn" id="btnSavePersona">保存人格</button>
+            <button class="btn secondary" id="btnCancelPersona">取消</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card view" data-view="tone">
+        <h2>人设与语气</h2>
+        <div class="switch-row">
+          <div class="info">
+            隐藏 AI 身份（拟人化）
+            <span class="hint">开启后 AI 不承认自己是 AI / 机器人，语气更口语化、自然拟态；关闭则允许明确 AI 身份</span>
+          </div>
+          <label class="switch"><input type="checkbox" id="hide_ai_identity" /><span class="slider"></span></label>
+        </div>
+        <div class="actions" style="margin-top: 16px">
+          <button class="btn" id="btnSaveIdentity">保存人设配置</button>
+        </div>
+      </div>
+
+      <div class="card view" data-view="voice">
+        <h2>语音（Edge TTS）</h2>
+        <div style="font-size: 16px; line-height: 1.5; margin-bottom: 10px">
+          使用帮助 · 其他国家文字转语音：可在回复对话框对 AI 模型说「和我对话用英语」，例如：英语，让模型用对应语言回复，并在下方手动选择对应国家的音色播报。注意：需要你的模型足够聪明（需模型支持该语言回复）。建议搭配相应的国家人格文字介绍，可让 AI 更好地理解自己扮演的角色给予回复。
+        </div>
+        <div class="switch-row">
+          <div class="info">
+            启用文字转语音
+            <span class="hint">使用微软 Edge 免费 TTS 接口将回复转为语音</span>
+          </div>
+          <label class="switch"><input type="checkbox" id="tts_enable" /><span class="slider"></span></label>
+        </div>
+        <div class="grid" style="margin-top: 12px">
+          <div class="field">
+            <label>语音回复模式</label>
+            <select id="tts_mode">
+              <option value="text">仅文字</option>
+              <option value="voice">仅语音</option>
+              <option value="text_voice">文字 + 语音</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>音色</label>
+            <select id="tts_voice"></select>
+            <span class="hint">支持 324 种音色（含中文音色与方言），描述均为中文</span>
+          </div>
+          <div class="field">
+            <label>语速（0.5 - 2.0）</label>
+            <input id="tts_speed" type="number" min="0.5" max="2" step="0.1" />
+          </div>
+          <div class="field">
+            <label>播报最大字符数</label>
+            <input id="tts_max_length" type="number" min="50" max="1000" />
+          </div>
+        </div>
+        <div class="actions" style="margin-top: 16px">
+          <button class="btn" id="btnSaveVoice">保存语音配置</button>
+        </div>
+      </div>
+
+      <div class="card view" data-view="computer">
+        <h2>电脑权限（工具调用）</h2>
+        <div class="switch-row">
+          <div class="info">
+            允许 AI 使用电脑
+            <span class="hint">开启后 AI 可调用工具在本机执行命令 / 读写文件，请谨慎开启</span>
+          </div>
+          <label class="switch"><input type="checkbox" id="enable_computer_permission" /><span class="slider"></span></label>
+        </div>
+        <div class="field" style="margin-top: 12px">
+          <label>可使用电脑权限的用户 ID 列表（逗号分隔，留空仅管理员）</label>
+          <input id="authorized_user_ids" type="text" placeholder="例如 10001,10002,10003" />
+        </div>
+        <div class="actions" style="margin-top: 16px">
+          <button class="btn" id="btnSaveComputer">保存权限配置</button>
+        </div>
+      </div>
+
+      <div class="card view" data-view="memory">
+        <h2>会话设置</h2>
+        <div class="switch-row">
+          <div class="info">
+            群聊图片直答（无需@）
+            <span class="hint">开启后群里发图片无需@机器人即可自动识别；关闭时群里需@机器人或在会话窗口内才识别</span>
+          </div>
+          <label class="switch"><input type="checkbox" id="group_image_reply" /><span class="slider"></span></label>
+        </div>
+        <div class="switch-row">
+          <div class="info">
+            消息 Emoji 表情识别
+            <span class="hint">识别用户消息中的常见 Emoji 表情含义，AI 在回复语气中自然呼应</span>
+          </div>
+          <label class="switch"><input type="checkbox" id="enable_emoji_analysis" /><span class="slider"></span></label>
+        </div>
+        <div class="switch-row">
+          <div class="info">
+            图片人脸表情识别
+            <span class="hint">收到图片时 AI 额外观察人物面部表情与情绪并给出贴合回应</span>
+          </div>
+          <label class="switch"><input type="checkbox" id="enable_facial_expression" /><span class="slider"></span></label>
+        </div>
+        <div class="switch-row">
+          <div class="info">
+            群聊用户@其他（她）人不给予回复
+            <span class="hint">开启后，群聊中用户@其他（她）人的消息 AI 将不给予回复</span>
+          </div>
+          <label class="switch"><input type="checkbox" id="ignore_mention_others" /><span class="slider"></span></label>
+        </div>
+        <div class="switch-row">
+          <div class="info">
+            不定时观察群聊（上下文感知插话）
+            <span class="hint">开启后未被@时，机器人也会偶尔根据群聊上下文主动插话回复</span>
+          </div>
+          <label class="switch"><input type="checkbox" id="enable_proactive_chat" /><span class="slider"></span></label>
+        </div>
+        <div class="field" style="margin-top: 12px">
+          <label>群聊插话频率</label>
+          <input id="proactive_chat_frequency" type="number" min="2" max="100" />
+          <span class="hint">平均每 N 条符合条件的群消息插话 1 次，数值越小插话越频繁，默认 10</span>
+        </div>
+        <div class="grid" style="margin-top: 12px">
+          <div class="field">
+            <label>每次回忆记忆条数</label>
+            <input id="memory_recall_count" type="number" min="1" max="10" />
+          </div>
+          <div class="field">
+            <label>群聊唤醒会话时长（秒）</label>
+            <input id="session_expire_seconds" type="number" min="30" max="3600" />
+            <span class="hint">@机器人唤醒后该时长内无需重复@，默认 120 秒（2分钟）</span>
+          </div>
+          <div class="field">
+            <label>上下文最大轮数</label>
+            <input id="max_log" type="number" min="2" max="50" />
+          </div>
+          <div class="field">
+            <label>开启深度思考</label>
+            <select id="on_thinking">
+              <option value="true">开启</option>
+              <option value="false">关闭</option>
+            </select>
+            <span class="hint">开启后向模型发送深度思考指令（需模型支持，部分模型不支持）</span>
+          </div>
+        </div>
+        <div class="actions" style="margin-top: 16px">
+          <button class="btn" id="btnSaveMemory">保存会话配置</button>
+        </div>
+      </div>
+
+      <div class="card view" data-view="longmem">
+        <h2>长期记忆管理</h2>
+        <div class="switch-row">
+          <div class="info">
+            启用长期记忆
+            <span class="hint">以文件形式存储于插件 data/long_memory/ 目录，按用户分文件管理</span>
+          </div>
+          <label class="switch"><input type="checkbox" id="enable_long_memory" /><span class="slider"></span></label>
+        </div>
+        <div class="switch-row">
+          <div class="info">
+            自动保存长期记忆
+            <span class="hint">开启后自动从对话中提炼记忆</span>
+          </div>
+          <label class="switch"><input type="checkbox" id="auto_save_memory" /><span class="slider"></span></label>
+        </div>
+        <div class="actions" style="margin-top: 12px">
+          <button class="btn" id="btnSaveLongMem">保存记忆配置</button>
+        </div>
+        <div style="border-top: 1px solid var(--border); margin: 18px 0;"></div>
+        <div class="query-memory">
+          <div class="grid">
+            <div class="field">
+              <label>记忆类型</label>
+              <select id="mem_scope">
+                <option value="user">私聊记忆（按用户）</option>
+                <option value="group">群聊记忆（按群）</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>用户ID / 群ID</label>
+              <input id="mem_uid" type="text" placeholder="例如 10001 / 群号" autocomplete="off" />
+            </div>
+          </div>
+          <div class="actions" style="margin-top: 12px">
+            <button class="btn" id="btnQueryMemory">查询记忆</button>
+            <button class="btn secondary" id="btnRefreshMemory">刷新全部记忆</button>
+            <button class="btn danger" id="btnClearMemory">清空全部记忆</button>
+          </div>
+        </div>
+        <div class="memory-scroll" id="memoryList"><div class="empty">输入记忆类型与用户ID/群ID后点击「查询记忆」查看该条目的全部记忆</div></div>
+      </div>
+
+      <div class="card view" data-view="fav">
+        <h2>好感度面板</h2>
+        <div class="switch-row">
+          <div class="info">
+            好感度面板
+            <span class="hint">开启后记录对每个私聊用户 / 群聊群的好感度，AI 根据好感度调整语气，可在下方面板查看与修改</span>
+          </div>
+          <label class="switch"><input type="checkbox" id="enable_favorability" /><span class="slider"></span></label>
+        </div>
+        <div class="field" style="margin-top: 12px">
+          <label>起始好感度</label>
+          <input id="favorability_default" type="number" min="0" max="100" />
+          <span class="hint">新用户/新群的好感度初始值，每次成功互动 +1，范围 0-100，默认 50</span>
+        </div>
+        <div class="switch-row">
+          <div class="info">
+            私人陪护（设置主人）
+            <span class="hint">开启后可在下方设置主人，AI 对主人亲密贴心陪护；对非主人用户避免过度言语亲密</span>
+          </div>
+          <label class="switch"><input type="checkbox" id="enable_private_companion" /><span class="slider"></span></label>
+        </div>
+        <div class="field" style="margin-top: 12px">
+          <label>主人用户 ID 列表（逗号分隔，仅私聊识别为主人）</label>
+          <input id="master_user_ids" type="text" placeholder="例如 10001,10002,10003" autocomplete="off" />
+        </div>
+        <div class="switch-row" style="margin-top: 12px">
+          <div class="info">
+            非主人避免过度言语亲密
+            <span class="hint">开启后，对话者非主人时 AI 保持礼貌距离，避免过于亲密、暧昧或撒娇的言语</span>
+          </div>
+          <label class="switch"><input type="checkbox" id="avoid_intimate_non_master" /><span class="slider"></span></label>
+        </div>
+        <div class="actions" style="margin-top: 16px">
+          <button class="btn" id="btnSaveCompanion">保存好感度设置</button>
+        </div>
+        <div style="border-top: 1px solid var(--border); margin: 18px 0;"></div>
+        <div class="query-memory">
+          <div class="grid">
+            <div class="field">
+              <label>好感度类型</label>
+              <select id="fav_scope">
+                <option value="user">私聊好感度（按用户）</option>
+                <option value="group">群聊好感度（按群）</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>用户ID / 群ID</label>
+              <input id="fav_uid" type="text" placeholder="例如 10001 / 群号" autocomplete="off" />
+            </div>
+            <div class="field">
+              <label>好感度值（0-100）</label>
+              <input id="fav_value" type="number" min="0" max="100" placeholder="例如 60" />
+            </div>
+          </div>
+          <div class="actions" style="margin-top: 12px">
+            <button class="btn" id="btnSetFavorability">设置好感度</button>
+            <button class="btn secondary" id="btnRefreshFavorability">刷新列表</button>
+            <button class="btn danger" id="btnClearFavorability">清空好感度</button>
+          </div>
+        </div>
+        <div class="memory-scroll" id="favorabilityList"><div class="empty">点击「刷新列表」查看各用户/群的好感度</div></div>
+      </div>
+    </div>
+
+    <nav class="bottom-nav" id="bottomNav">
+      <button type="button" class="nav-item active" data-view="model">
+        <svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/><rect x="9.5" y="9.5" width="5" height="5"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M19 9h3M2 15h3M19 15h3"/></svg>
+        <span class="nav-title">模型</span>
+        <span class="nav-sub">模型与API</span>
+      </button>
+      <button type="button" class="nav-item" data-view="persona">
+        <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <span class="nav-title">人格</span>
+        <span class="nav-sub">人格库</span>
+      </button>
+      <button type="button" class="nav-item" data-view="tone">
+        <svg viewBox="0 0 24 24"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+        <span class="nav-title">语气</span>
+        <span class="nav-sub">人设与语气</span>
+      </button>
+      <button type="button" class="nav-item" data-view="voice">
+        <svg viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+        <span class="nav-title">语音</span>
+        <span class="nav-sub">语音TTS</span>
+      </button>
+      <button type="button" class="nav-item" data-view="computer">
+        <svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+        <span class="nav-title">权限</span>
+        <span class="nav-sub">电脑权限</span>
+      </button>
+      <button type="button" class="nav-item" data-view="memory">
+        <svg viewBox="0 0 24 24"><path d="M4 8V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2"/><path d="M20 8H4a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2Z"/><path d="M6 12h.01M10 12h.01M14 12h.01"/></svg>
+        <span class="nav-title">会话</span>
+        <span class="nav-sub">会话设置</span>
+      </button>
+      <button type="button" class="nav-item" data-view="longmem">
+        <svg viewBox="0 0 24 24"><path d="M3 5a9 3 0 0 1 18 0M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg>
+        <span class="nav-title">长期记忆</span>
+        <span class="nav-sub">回忆与整理</span>
+      </button>
+      <button type="button" class="nav-item" data-view="fav">
+        <svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+        <span class="nav-title">好感度</span>
+        <span class="nav-sub">面板与陪护</span>
+      </button>
+    </nav>
+    </div>
+
+    <div class="modal-overlay" id="confirmModal">
+      <div class="modal-box">
+        <div class="modal-text" id="confirmText"></div>
+        <div class="actions">
+          <button class="btn secondary" id="confirmCancel">取消</button>
+          <button class="btn danger" id="confirmOk">确定</button>
+        </div>
+      </div>
+    </div>
+    <div class="toast" id="toast"></div>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
