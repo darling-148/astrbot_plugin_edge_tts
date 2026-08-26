@@ -1,0 +1,43 @@
+version: "3.8"
+
+# Edge_TTS 插件 Docker 部署示例
+#
+# 用法：
+#   Linux / macOS：cd 到插件目录（data/plugins/<本插件>）后执行
+#       docker compose up -d --build
+#   Windows（Docker Desktop + PowerShell / CMD）：同样进入插件目录后执行
+#       docker compose up -d --build
+#   挂载目录默认取插件目录上两级，即 <AstrBot>/data（插件本体与长记忆
+#   data/long_memory/ 均在数据目录内，随挂载自动持久化）。
+#   如需指定其它数据目录：
+#       ASTRBOT_DATA_DIR=/path/to/astrbot_data docker compose up -d --build
+#   若使用国内镜像源拉取官方镜像（可选）：
+#       ASTRBOT_IMAGE=m.daocloud.io/docker.io/soulter/astrbot:latest docker compose up -d --build
+services:
+  astrbot:
+    build: .
+    image: ${ASTRBOT_IMAGE:-astrbot-edge-tts:latest}
+    container_name: astrbot
+    restart: always
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "6185:6185" # AstrBot WebUI
+      # - "6199:6199" # 如使用 OneBot v11（NapCat）WebSocket，取消注释
+    environment:
+      - TZ=Asia/Shanghai
+    volumes:
+      - ${ASTRBOT_DATA_DIR:-../..}:/AstrBot/data
+      - /etc/localtime:/etc/localtime:ro
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request;urllib.request.urlopen('http://127.0.0.1:6185/',timeout=5)",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s

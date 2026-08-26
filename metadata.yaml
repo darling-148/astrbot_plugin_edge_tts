@@ -1,0 +1,12 @@
+name: astrbot_plugin_edge_tts
+display_name: Edge_TTS
+desc: 系统依赖 ffmpeg（必须）。可自定义聊天大模型 - 支持 WebUI 控制界面、Edge_tts聊天陪护语音插件。
+help: 发送 /聊天菜单 查看功能菜单，或 /开启聊天 开启对话。全部配置请在插件的 WebUI 控制界面中修改。
+icon: logo.png
+version: 2.8.5
+category: 聊天 陪护 语音
+author: honey-96
+repo: https://github.com/honey-96/astrbot_plugin_edge_tts.git
+astrbot_version: ">=4.9.2"
+support_platforms:
+  - aiocqhttp
