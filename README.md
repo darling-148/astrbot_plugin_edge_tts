@@ -146,7 +146,7 @@ docker compose up -d --build
 | `enable_emoji_analysis` | 消息 Emoji 表情识别开关 |
 | `enable_facial_expression` | 图片人脸表情识别开关 |
 | `tts_enable` / `tts_mode` / `tts_voice` / `tts_speed` | Edge TTS 开关、模式（text=仅文字 / voice=仅语音 / text_voice=文字 + 语音）、音色（324 种，含中文音色与方言，描述均为中文）、语速 |
-| `tts_max_length` | 语音播报最大字符数 |
+| `tts_max_length` | 回复最大字符数（文字输出与语音播报同步截断） |
 | `max_log` | 上下文最大保留轮数 |
 | `on_thinking` | 开启深度思考指令 |
 | `session_expire_seconds` | 群聊唤醒会话时长（秒），默认 120（2 分钟） |

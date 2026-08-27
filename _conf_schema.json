@@ -598,10 +598,10 @@
     "invisible": true
   },
   "tts_max_length": {
-    "description": "语音播报最大字符数",
+    "description": "回复最大字符数",
     "type": "int",
     "default": 300,
-    "hint": "超过该长度的文本不会播报语音",
+    "hint": "超过该长度的回复会被截断，文字输出与语音播报同步生效",
     "invisible": true
   },
   "max_log": {

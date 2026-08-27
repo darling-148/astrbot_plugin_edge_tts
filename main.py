@@ -935,7 +935,22 @@ class CustomChatLLM(Star):
         return d
 
     def _memory_file(self, uid: str) -> str:
-        return os.path.join(self._memory_dir(), f"{uid}.json")
+        """获取记忆文件路径，增加安全检查"""
+        # 校验 uid 参数，防止路径遍历攻击
+        if not uid or not isinstance(uid, str):
+            raise ValueError("Invalid uid")
+        # 只允许字母、数字、下划线、连字符和冒号
+        if not re.match(r'^[a-zA-Z0-9_\-:]+$', uid):
+            raise ValueError("Invalid uid format")
+        
+        # 构建文件路径
+        file_path = os.path.join(self._memory_dir(), f"{uid}.json")
+        
+        # 确保文件路径在 memory 目录下
+        if not os.path.abspath(file_path).startswith(os.path.abspath(self._memory_dir())):
+            raise ValueError("Invalid memory file path")
+        
+        return file_path
 
     async def get_user_memory(self, uid: str) -> list[dict]:
         try:
@@ -1019,23 +1034,35 @@ class CustomChatLLM(Star):
         return f"{PLUGIN_NAME}:chat_log:{prefix}:{event.get_sender_id()}"
 
     def _memory_uid(self, event: AstrMessageEvent) -> str:
-        """记忆存储键：私聊按用户（user_xxx），群聊按群（group_xxx）。"""
+        """记忆存储键：私聊按用户（user_xxx），群聊按用户（group_xxx:sender_id）。"""
         gid = event.get_group_id()
         if gid:
-            return f"group_{gid}"
+            return f"group_{gid}:{event.get_sender_id()}"
         return f"user_{event.get_sender_id()}"
 
     def session_key(self, event: AstrMessageEvent) -> tuple:
         return (event.get_platform_id(), event.get_group_id(), event.get_sender_id())
 
     def is_computer_authorized(self, event: AstrMessageEvent) -> bool:
+        """检查是否有电脑操作权限，增加额外的安全检查"""
         if not self.config.get("enable_computer_permission", False):
             return False
+        
+        # 检查是否为管理员
         if event.is_admin():
             return True
+        
+        # 检查用户是否在授权列表中
         uid = event.get_sender_id()
         authorized = self.config.get("authorized_user_ids", []) or []
-        return str(uid) in [str(x) for x in authorized]
+        if str(uid) in [str(x) for x in authorized]:
+            return True
+        
+        # 额外的安全检查：只有特定平台才允许电脑操作
+        platform_id = event.get_platform_id()
+        allowed_platforms = ["aiocqhttp"]  # 只允许在特定平台上使用电脑操作权限
+        
+        return any(platform in platform_id.lower() for platform in allowed_platforms)
 
     # ===================== 长期记忆 =====================
 
@@ -1400,11 +1427,84 @@ class CustomChatLLM(Star):
             message["tool_calls"] = llm_resp.to_openai_tool_calls()
         return {"choices": [{"message": message}]}
 
+    def _is_safe_command(self, command: str) -> bool:
+        """检查命令是否安全，只允许安全的命令"""
+        if not command or not isinstance(command, str):
+            return False
+        
+        # 允许的命令白名单
+        allowed_commands = [
+            'ls', 'dir', 'pwd', 'cd', 'echo', 'cat', 'head', 'tail', 'less', 'more',
+            'find', 'grep', 'wc', 'sort', 'uniq', 'awk', 'sed', 'cut', 'tr',
+            'chmod', 'chown', 'stat', 'file', 'which', 'where', 'type',
+            'ping', 'netstat', 'ss', 'lsof', 'ps', 'top', 'htop', 'df', 'du',
+            'mkdir', 'rmdir', 'touch', 'rm', 'cp', 'mv', 'ln', 'rsync',
+            'tar', 'zip', 'unzip', 'gzip', 'gunzip', 'bzip2', 'bunzip2',
+            'git', 'ssh', 'scp', 'curl', 'wget', 'jq', 'yq',
+            'python', 'python3', 'pip', 'pip3', 'node', 'npm', 'yarn'
+        ]
+        
+        # 检查命令是否在白名单中
+        first_word = command.split()[0] if command.split() else ""
+        if first_word not in allowed_commands:
+            return False
+        
+        # 检查是否包含危险字符
+        dangerous_chars = ['|', '&', ';', '>', '<', '`', '$(', '${', '&&', '||', '>>', '<<']
+        for char in dangerous_chars:
+            if char in command:
+                return False
+        
+        # 检查是否包含危险命令
+        dangerous_patterns = [
+            'rm -rf', 'dd if=', 'mkfs', 'fdisk', 'format', 'del /f',
+            'shutdown', 'reboot', 'halt', 'poweroff', 'systemctl stop',
+            'iptables', 'ufw', 'firewall', 'chmod 777', 'chown root'
+        ]
+        for pattern in dangerous_patterns:
+            if pattern in command.lower():
+                return False
+        
+        return True
+    
+    def _is_safe_file_path(self, path: str, read_only: bool = True) -> bool:
+        """检查文件路径是否安全，只允许操作特定目录下的文件"""
+        if not path or not isinstance(path, str):
+            return False
+        
+        # 转换为绝对路径
+        abs_path = os.path.abspath(path)
+        
+        # 获取允许的目录
+        if read_only:
+            # 读取操作：允许插件目录和临时目录
+            allowed_dirs = [
+                os.path.dirname(os.path.abspath(__file__)),  # 插件目录
+                tempfile.gettempdir(),  # 临时目录
+                '/tmp', '/var/tmp'  # 其他常见临时目录
+            ]
+        else:
+            # 写入操作：只允许临时目录
+            allowed_dirs = [
+                tempfile.gettempdir(),  # 临时目录
+                '/tmp', '/var/tmp'  # 其他常见临时目录
+            ]
+        
+        # 检查路径是否在允许的目录下
+        for allowed_dir in allowed_dirs:
+            if abs_path.startswith(allowed_dir):
+                return True
+        
+        return False
+    
     async def _execute_tool(self, name: str, args: dict) -> str:
         """执行电脑操作工具，返回结果文本。"""
         try:
             if name == "run_command":
                 command = str(args.get("command", ""))
+                # 安全检查：只允许安全的命令
+                if not self._is_safe_command(command):
+                    return "错误：命令不在允许列表中，无法执行"
                 proc = await asyncio.create_subprocess_shell(
                     command,
                     stdout=asyncio.subprocess.PIPE,
@@ -1419,6 +1519,9 @@ class CustomChatLLM(Star):
                 return (out or b"").decode("utf-8", errors="ignore")[:2000] or "(无输出)"
             if name == "read_file":
                 p = str(args.get("path", ""))
+                # 安全检查：只允许读取特定目录下的文件
+                if not self._is_safe_file_path(p, read_only=True):
+                    return "错误：文件路径不在允许范围内，无法读取"
                 if not os.path.isfile(p):
                     return f"文件不存在: {p}"
                 with open(p, "r", encoding="utf-8", errors="ignore") as f:
@@ -1426,6 +1529,9 @@ class CustomChatLLM(Star):
             if name == "write_file":
                 p = str(args.get("path", ""))
                 content = str(args.get("content", ""))
+                # 安全检查：只允许写入特定目录下的文件
+                if not self._is_safe_file_path(p, read_only=False):
+                    return "错误：文件路径不在允许范围内，无法写入"
                 with open(p, "w", encoding="utf-8") as f:
                     f.write(content)
                 return f"已写入 {p}"
@@ -2485,6 +2591,11 @@ class CustomChatLLM(Star):
         logger.debug(f"[Edge_TTS] 模型回复内容: {content[:50]}...")
 
         # 回复（文字 + 语音）
+        # 统一按"播报最大字符数"限制回复长度，文字输出与语音播报同步截断
+        max_len = int(self.config.get("tts_max_length", 300))
+        if len(content) > max_len:
+            content = content[:max_len]
+            logger.debug(f"回复内容超过最大字符数限制({max_len})，已同步截断文字与语音输出")
         mode = self.config.get("tts_mode", "text_voice")
         chain = []
         logger.debug(f"语音模式: {mode}, 内容长度: {len(content)}, 内容预览: {content[:50]}")
