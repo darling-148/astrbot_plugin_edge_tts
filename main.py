@@ -2143,6 +2143,93 @@ class CustomChatLLM(Star):
         
         return ""
 
+    async def _recognize_image_type(self, image_urls: list[str]) -> tuple[str, str]:
+        """用识图模型看懂图片，区分是表情包还是其他图片。
+
+        卡通/动漫/可爱风格等默认归类为表情包；识别成功后返回约 20 字的
+        图片描述（重点描述人物面部表情与情绪），供对话模型理解用户发送的表情。
+
+        Args:
+            image_urls: 图片 URL 列表（远程 URL 或 base64 data URL）
+
+        Returns:
+            tuple[str, str]: (图片类型, 图片描述)
+            - 图片类型: "表情包" 或 "普通图片" 或 ""
+            - 图片描述: 约 20 字以内的描述文字；识别失败时为空字符串
+        """
+        if not image_urls:
+            return "", ""
+        try:
+            prepared_url = await self._prepare_gif_frame(image_urls[0])
+            user_content = [
+                {
+                    "type": "text",
+                    "text": (
+                        "请仔细观察这张图片，并回答以下问题：\n"
+                        "1. 它是表情包还是普通图片？卡通/动漫/可爱风格、网络梗图、"
+                        "搞笑表情等一律算表情包；真实照片、截图、风景、文档等算普通图片。\n"
+                        "2. 如果表情包中带有文字，请完整提取图中的文字内容（文字越完整越好）。\n"
+                        "3. 如果没有文字或文字很少，用不超过20个字描述这张图片的内容，"
+                        "重点观察图中人物（或拟人角色）的面部表情与情绪"
+                        "（如开心、大笑、难过、生气、惊讶、委屈、尴尬、翻白眼等）。\n"
+                        "请按如下格式回答：\n"
+                        "类型：表情包（或普通图片）\n"
+                        "文字：<图中的文字内容，无文字则留空>\n"
+                        "描述：<20字以内>"
+                    ),
+                },
+                {"type": "image_url", "image_url": {"url": prepared_url}},
+            ]
+            data = await self._call_llm(
+                [
+                    {"role": "system", "content": "你是一个图片分类与表情识别助手，简洁准确地判断图片类型并识别面部表情。"},
+                    {"role": "user", "content": user_content},
+                ],
+                is_vision=True,
+            )
+            if not data.get("choices"):
+                return "", ""
+            content = (data["choices"][0].get("message", {}).get("content") or "").strip()
+            logger.debug(f"识图模型图片识别结果: {content[:100]}")
+            if not content:
+                return "", ""
+            # 解析类型
+            img_type = ""
+            if "表情包" in content:
+                img_type = "表情包"
+            elif "普通图片" in content:
+                img_type = "普通图片"
+            # 解析文字：优先提取表情包内的文字内容
+            img_text = ""
+            for line in content.splitlines():
+                if "文字" in line:
+                    candidate = line.split("文字", 1)[-1].lstrip("：: ")
+                    if candidate and candidate not in ("无", "无文字", "没有", "无文字内容", "留空", "空"):
+                        img_text = candidate.strip()
+                    break
+            # 解析描述：优先取"描述："后面的内容
+            desc = ""
+            for line in content.splitlines():
+                if "描述" in line:
+                    desc = line.split("描述", 1)[-1].lstrip("：: ")
+                    break
+            if not desc:
+                # 去掉"类型"和"文字"行后取剩余内容
+                lines = [
+                    l for l in content.splitlines()
+                    if "类型" not in l and "文字" not in l and l.strip()
+                ]
+                desc = " ".join(lines)
+            # 表情包带文字时，优先返回图片内的文字，让对话模型理解梗意
+            if img_text:
+                desc = img_text
+            elif len(desc) > 20:
+                desc = desc[:20]
+            return img_type, desc
+        except Exception as e:
+            logger.error(f"识图模型识别图片类型失败: {e}")
+            return "", ""
+
     async def _do_chat(self, event: AstrMessageEvent) -> None:
         """执行对话主流程。"""
         uid = self._memory_uid(event)
@@ -2308,42 +2395,32 @@ class CustomChatLLM(Star):
         # 组装用户消息（支持多模态）
         # 纯@机器人（无文字、无图片）场景：用户@机器人，让模型自由回复
         is_only_at = (not text or text == "") and not is_vision
+        # 实际调用 LLM 时是否用识图模型：表情包/卡通图走对话模型（仅传文字描述），普通图片走识图模型
+        chat_is_vision = is_vision
         if is_only_at:
             logger.info("[Edge_TTS] 纯@机器人场景，让模型自由回复")
             user_msg = memory_prompt + "用户@了你，请用符合你人格的方式自然回复。注意不要提及\"被@\"或\"被提及\"这类事，就像普通聊天一样直接回应对方。"
         elif is_vision:
-            if image_type_desc == "表情包" or image_type_desc.startswith("表情包("):
-                # 表情包场景：先识别图片风格，再决定如何处理
-                # 提取表情含义（如果有）
-                emoji_meaning = ""
-                if "(" in image_type_desc and ")" in image_type_desc:
-                    emoji_meaning = image_type_desc[image_type_desc.index("(") + 1:image_type_desc.index(")")]
-                
-                # 判断是否为卡通/可爱风格表情包
-                is_cartoon = "cartoon" in image_type_desc.lower() or "cute" in image_type_desc.lower() or "anime" in image_type_desc.lower()
-                
+            # 先用识图模型看懂图片，区分是表情包还是其他图片
+            # 卡通/动漫/可爱风格等默认归类为表情包，识别结果约20字传给对话模型理解
+            vision_type, vision_desc = await self._recognize_image_type(image_urls)
+            logger.debug(f"识图模型判断图片类型: '{vision_type}', 描述: '{vision_desc}'")
+            # 识图模型判断为表情包（含卡通图），或文件名特征暗示表情包时
+            is_meme = vision_type == "表情包" or image_type_desc.startswith("表情包")
+            if is_meme:
+                # 表情包场景：优先将提取出的表情包文字（含面部表情描述）传给对话模型理解，不传原图
+                desc_text = vision_desc or (image_type_desc[3:] if image_type_desc.startswith("表情包(") else "一个表情")
                 if text:
-                    # 用户有文字说明：将图片类型告诉机器人
-                    if is_cartoon:
-                        user_msg = [
-                            {"type": "text", "text": f"{memory_prompt}用户发送了一个卡通可爱风格的表情包，含义是：{emoji_meaning if emoji_meaning else '表情'}。用户还说了：{text}。请回复。"},
-                        ]
-                    else:
-                        user_msg = [
-                            {"type": "text", "text": f"{memory_prompt}用户发送了一个表情包，含义是：{emoji_meaning if emoji_meaning else '表情'}。用户还说了：{text}。请回复。"},
-                        ]
+                    user_msg = [
+                        {"type": "text", "text": f"{memory_prompt}用户发送了一个表情包：{desc_text}。用户还说了：{text}。表情包中的文字或表情含义是重点，请据此给予自然贴切的回复，语气呼应图片传达的感情。"},
+                    ]
                 else:
-                    # 用户只发了表情包：告诉机器人图片类型
-                    if is_cartoon:
-                        user_msg = [
-                            {"type": "text", "text": f"{memory_prompt}用户发送了一个卡通可爱风格的表情包，含义是：{emoji_meaning if emoji_meaning else '表情'}。请回复。"},
-                        ]
-                    else:
-                        user_msg = [
-                            {"type": "text", "text": f"{memory_prompt}用户发送了一个表情包，含义是：{emoji_meaning if emoji_meaning else '表情'}。请回复。"},
-                        ]
-                # 表情包不传给识图模型，直接用文字描述
+                    user_msg = [
+                        {"type": "text", "text": f"{memory_prompt}用户发送了一个表情包：{desc_text}。表情包中的文字或表情含义是重点，请据此给予自然贴切的回复，语气呼应图片传达的感情。"},
+                    ]
+                # 表情包不传给识图模型，直接用文字描述，由对话模型理解
                 image_urls_for_vision = []
+                chat_is_vision = False
             else:
                 # 普通图片场景：根据图片风格决定处理方式
                 is_cartoon_style = "cartoon" in image_type_desc.lower() or "cute" in image_type_desc.lower() or "anime" in image_type_desc.lower()
@@ -2358,6 +2435,7 @@ class CustomChatLLM(Star):
                             {"type": "text", "text": f"{memory_prompt}用户发送了一张卡通可爱风格的图片。请回复。"},
                         ]
                     image_urls_for_vision = []  # 不传给识图模型
+                    chat_is_vision = False
                 else:
                     # 普通图片场景：交给识图模型识别
                     text_part = text or "请描述这张图片的内容"
@@ -2394,7 +2472,7 @@ class CustomChatLLM(Star):
                 system_prompt,
                 history,
                 user_msg,
-                is_vision=is_vision,
+                is_vision=chat_is_vision,
                 allow_tools=True,
             )
         except Exception as e:
