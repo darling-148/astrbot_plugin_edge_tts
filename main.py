@@ -1052,15 +1052,15 @@ class CustomChatLLM(Star):
         if event.is_admin():
             return True
         
-        # 检查用户是否在授权列表中
+        # 检查用户是否在授权列表中（必须）
         uid = event.get_sender_id()
         authorized = self.config.get("authorized_user_ids", []) or []
-        if str(uid) in [str(x) for x in authorized]:
-            return True
+        if not str(uid) in [str(x) for x in authorized]:
+            return False
         
-        # 额外的安全检查：只有特定平台才允许电脑操作
+        # 平台限制：只允许在特定平台上使用电脑操作权限
         platform_id = event.get_platform_id()
-        allowed_platforms = ["aiocqhttp"]  # 只允许在特定平台上使用电脑操作权限
+        allowed_platforms = ["aiocqhttp"]
         
         return any(platform in platform_id.lower() for platform in allowed_platforms)
 
@@ -1432,16 +1432,15 @@ class CustomChatLLM(Star):
         if not command or not isinstance(command, str):
             return False
         
-        # 允许的命令白名单
+        # 移除危险的命令：这些命令可能被用来执行任意代码或进行网络攻击
         allowed_commands = [
             'ls', 'dir', 'pwd', 'cd', 'echo', 'cat', 'head', 'tail', 'less', 'more',
             'find', 'grep', 'wc', 'sort', 'uniq', 'awk', 'sed', 'cut', 'tr',
-            'chmod', 'chown', 'stat', 'file', 'which', 'where', 'type',
+            'stat', 'file', 'which', 'where', 'type',
             'ping', 'netstat', 'ss', 'lsof', 'ps', 'top', 'htop', 'df', 'du',
-            'mkdir', 'rmdir', 'touch', 'rm', 'cp', 'mv', 'ln', 'rsync',
+            'mkdir', 'rmdir', 'touch', 'cp', 'mv', 'ln',
             'tar', 'zip', 'unzip', 'gzip', 'gunzip', 'bzip2', 'bunzip2',
-            'git', 'ssh', 'scp', 'curl', 'wget', 'jq', 'yq',
-            'python', 'python3', 'pip', 'pip3', 'node', 'npm', 'yarn'
+            'jq', 'yq'
         ]
         
         # 检查命令是否在白名单中
@@ -1449,8 +1448,9 @@ class CustomChatLLM(Star):
         if first_word not in allowed_commands:
             return False
         
-        # 检查是否包含危险字符
-        dangerous_chars = ['|', '&', ';', '>', '<', '`', '$(', '${', '&&', '||', '>>', '<<']
+        # 检查是否包含危险字符（包括换行符和引号）
+        dangerous_chars = ['|', '&', ';', '>', '<', '`', '$(', '${', '&&', '||', '>>', '<<',
+                          '\n', '\r', "'", '"', '$']
         for char in dangerous_chars:
             if char in command:
                 return False
@@ -1459,7 +1459,9 @@ class CustomChatLLM(Star):
         dangerous_patterns = [
             'rm -rf', 'dd if=', 'mkfs', 'fdisk', 'format', 'del /f',
             'shutdown', 'reboot', 'halt', 'poweroff', 'systemctl stop',
-            'iptables', 'ufw', 'firewall', 'chmod 777', 'chown root'
+            'iptables', 'ufw', 'firewall', 'chmod 777', 'chown root',
+            'curl', 'wget', 'ssh', 'scp', 'nc', 'netcat', 'python', 'node',
+            'eval', 'exec', 'bash', 'sh ', 'cmd', 'powershell'
         ]
         for pattern in dangerous_patterns:
             if pattern in command.lower():
@@ -2788,6 +2790,14 @@ class CustomChatLLM(Star):
         config["astrbot_personas"] = self._list_astrbot_personas()
         sel_persona = await self._get_astrbot_persona()
         config["astrbot_current_persona"] = sel_persona.get("name") or ""
+        
+        # 移除敏感信息，防止 API key 泄露
+        sensitive_keys = ["api_key", "chat_api_key", "vision_api_key", "chat_api_base_url", 
+                          "vision_api_base_url", "custom_api_base_url", "custom_api_key"]
+        for key in sensitive_keys:
+            if key in config:
+                config[key] = "" if key.endswith("key") else "(已配置)"
+        
         return json_response(config)
 
     def _list_providers(self) -> list[dict]:
