@@ -1859,8 +1859,14 @@ class CustomChatLLM(Star):
         if not chat_enable:
             return
 
-        # 私聊直接响应
+        # 私聊直接响应（过滤掉发给自己的消息，避免自言自语）
         if event.is_private_chat():
+            sender_id = event.get_sender_id()
+            self_id = event.get_self_id()
+            # 如果发送者和机器人是同一个 ID，说明是自己发给自己，跳过
+            if str(sender_id) == str(self_id):
+                logger.debug(f"[Edge_TTS] 私聊消息发送者是自己，跳过: {sender_id}")
+                return
             await self._do_chat(event)
             event.stop_event()
             return
