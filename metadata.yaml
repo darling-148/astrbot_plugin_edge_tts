@@ -1,10 +1,9 @@
 name: astrbot_plugin_edge_tts
 display_name: Edge_TTS
-desc: 基于 Microsoft Edge TTS 的聊天陪护语音插件，支持自定义大模型、表情包识别、人格库、长期记忆、电脑操作权限与好感度管理，WebUI 可视化配置。
-help: 发送 /聊天菜单 查看功能菜单，或 /开启聊天 开启对话。全部配置请在插件的 WebUI 控制界面中修改。
+desc: 基于 Microsoft Edge TTS 的聊天陪护语音插件，支持自定义大模型，需要安装ffmpeg, 全部配置请在插件的 WebUI 控制界面中修改。
 icon: logo.png
-version: 2.9.0
-category: 聊天 陪护 语音
+version: 2.9.1
+category:
 author: darling-148
 repo: https://github.com/darling-148/astrbot_plugin_edge_tts.git
 astrbot_version: ">=4.9.2"

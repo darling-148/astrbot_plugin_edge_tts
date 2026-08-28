@@ -548,7 +548,7 @@
         <div class="grid" style="margin-top: 16px">
           <div class="field">
             <label>模型 API 接口地址（可选项，对话与识图共用）</label>
-            <input id="api_base_url" type="text" placeholder="https://open.bigmodel.cn/api/paas/v4" />
+            <input id="api_base_url" type="text" placeholder="" />
             <span class="hint">OpenAI 兼容格式；可填通用端点（如 …/v4，自动补全 /chat/completions，同一地址可接入其它品牌/多个模型，只需填对应模型名）或填完整端点；对话与识图共用同一地址与 Key，仅模型名称不同；留空采用 AstrBot 配置</span>
           </div>
           <div class="field">
@@ -556,13 +556,13 @@
             <input id="api_key" type="text" autocomplete="off" />
           </div>
           <div class="field">
-            <label>对话模型名称（可选）</label>
-            <input id="chat_model" type="text" placeholder="例如 glm-4.5-flash" />
+            <label>对话模型名称</label>
+            <input id="chat_model" type="text" placeholder="" />
             <span class="hint">自定义 API 模式指定对话模型名；AstrBot 提供商模式可覆盖其默认模型，留空使用默认</span>
           </div>
           <div class="field">
-            <label>识图模型名称（可选）</label>
-            <input id="vision_model" type="text" placeholder="例如 glm-4.6v-flash" />
+            <label>识图模型名称</label>
+            <input id="vision_model" type="text" placeholder="" />
             <span class="hint">用于分析图片与图片表情包的模型名；与对话共用 API 地址与 Key，留空使用默认</span>
           </div>
         </div>
@@ -639,7 +639,7 @@
       <div class="card view" data-view="voice">
         <h2>语音（Edge TTS）</h2>
         <div style="font-size: 16px; line-height: 1.5; margin-bottom: 10px">
-          使用帮助 · 其他国家文字转语音：可在回复对话框对 AI 模型说「和我对话用英语」，例如：英语，让模型用对应语言回复，并在下方手动选择对应国家的音色播报。注意：需要你的模型足够聪明（需模型支持该语言回复）。建议搭配相应的国家人格文字介绍，可让 AI 更好地理解自己扮演的角色给予回复。
+          使用帮助 · 其他国家文字转语音：可在回复对话框对 AI 模型说「和我对话用英语」让模型用对应语言回复，并在下方手动选择对应国家的音色播报。注意：需要你的模型足够聪明（需模型支持该语言回复）。建议搭配相应的国家人格文字介绍，可让 AI 更好地理解自己扮演的角色给予回复。
         </div>
         <div class="switch-row">
           <div class="info">
@@ -719,7 +719,7 @@
         </div>
         <div class="switch-row">
           <div class="info">
-            群聊用户@其他（她）人不给予回复
+            群聊@其他（她）人不给予回复
             <span class="hint">开启后，群聊中用户@其他（她）人的消息 AI 将不给予回复</span>
           </div>
           <label class="switch"><input type="checkbox" id="ignore_mention_others" /><span class="slider"></span></label>

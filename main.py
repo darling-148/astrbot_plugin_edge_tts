@@ -2802,7 +2802,7 @@ class CustomChatLLM(Star):
                           "vision_api_base_url", "custom_api_base_url", "custom_api_key"]
         for key in sensitive_keys:
             if key in config:
-                config[key] = "" if key.endswith("key") else "(已配置)"
+                config[key] = "" if key.endswith("key") else ""
         
         return json_response(config)
 
