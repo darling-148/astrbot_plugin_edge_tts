@@ -676,23 +676,7 @@
         </div>
       </div>
 
-      <div class="card view" data-view="computer">
-        <h2>电脑权限（工具调用）</h2>
-        <div class="switch-row">
-          <div class="info">
-            允许 AI 使用电脑
-            <span class="hint">开启后 AI 可调用工具在本机执行命令 / 读写文件，请谨慎开启</span>
-          </div>
-          <label class="switch"><input type="checkbox" id="enable_computer_permission" /><span class="slider"></span></label>
-        </div>
-        <div class="field" style="margin-top: 12px">
-          <label>可使用电脑权限的用户 ID 列表（逗号分隔，留空仅管理员）</label>
-          <input id="authorized_user_ids" type="text" placeholder="例如 10001,10002,10003" />
-        </div>
-        <div class="actions" style="margin-top: 16px">
-          <button class="btn" id="btnSaveComputer">保存权限配置</button>
-        </div>
-      </div>
+
 
       <div class="card view" data-view="memory">
         <h2>会话设置</h2>
@@ -892,11 +876,7 @@
         <span class="nav-title">语音</span>
         <span class="nav-sub">语音TTS</span>
       </button>
-      <button type="button" class="nav-item" data-view="computer">
-        <svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
-        <span class="nav-title">权限</span>
-        <span class="nav-sub">电脑权限</span>
-      </button>
+
       <button type="button" class="nav-item" data-view="memory">
         <svg viewBox="0 0 24 24"><path d="M4 8V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2"/><path d="M20 8H4a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2Z"/><path d="M6 12h.01M10 12h.01M14 12h.01"/></svg>
         <span class="nav-title">会话</span>

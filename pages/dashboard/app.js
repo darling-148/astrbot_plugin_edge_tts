@@ -411,7 +411,6 @@ function renderStatus(status) {
     { label: "TTS 语音", on: status.tts_enable },
     { label: "ffmpeg", on: status.ffmpeg_installed },
     { label: "长期记忆", on: status.long_memory },
-    { label: "电脑权限", on: status.computer_permission },
     { label: `人格 · ${status.persona_name || "未设置"}`, on: true },
     { label: "好感度", on: status.favorability },
   ];
@@ -580,11 +579,6 @@ function collectConfig() {
     hide_ai_identity: $("hide_ai_identity").checked,
     use_astrbot_default_persona: $("use_astrbot_default_persona").checked,
     astrbot_persona: $("astrbot_persona").value,
-    enable_computer_permission: $("enable_computer_permission").checked,
-    authorized_user_ids: ($("authorized_user_ids").value || "")
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean),
     enable_long_memory: $("enable_long_memory").checked,
     auto_save_memory: $("auto_save_memory").checked,
     group_image_reply: $("group_image_reply").checked,
@@ -675,8 +669,6 @@ function applyConfig(config) {
   fillAstrbotPersonaSelect(config.astrbot_persona, config.astrbot_personas);
   refreshCurrentPersonaName(config);
   syncPersonaSelectionDisabled();
-  setSwitch("enable_computer_permission", config.enable_computer_permission);
-  $("authorized_user_ids").value = (config.authorized_user_ids || []).join(",");
   setSwitch("enable_long_memory", config.enable_long_memory);
   setSwitch("auto_save_memory", config.auto_save_memory);
   setSwitch("group_image_reply", config.group_image_reply);
@@ -955,7 +947,7 @@ const VOICE_KEYS = [
   "tts_max_length",
 ];
 
-const COMPUTER_KEYS = ["enable_computer_permission", "authorized_user_ids"];
+
 
 const MEMORY_KEYS = [
   "memory_recall_count",
@@ -1024,9 +1016,7 @@ $("btnSaveVoice").addEventListener("click", async () => {
   await saveConfigKeys(VOICE_KEYS, $("btnSaveVoice"));
 });
 
-$("btnSaveComputer").addEventListener("click", async () => {
-  await saveConfigKeys(COMPUTER_KEYS, $("btnSaveComputer"));
-});
+
 
 $("btnSaveIdentity").addEventListener("click", async () => {
   await saveConfigKeys(

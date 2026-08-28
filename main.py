@@ -601,8 +601,8 @@ DEFAULT_CONFIG = {
     "hide_ai_identity": True,
     "use_astrbot_default_persona": False,
     "astrbot_persona": "",
-    "enable_computer_permission": False,
-    "authorized_user_ids": [],
+
+
     "enable_long_memory": True,
     "memory_recall_count": 3,
     "auto_save_memory": True,
@@ -628,82 +628,6 @@ DEFAULT_CONFIG = {
     "avoid_intimate_non_master": True,
     "enable_noprefix_command": True,
 }
-
-
-# 电脑操作工具定义（OpenAI/智谱 兼容 function calling）
-COMPUTER_TOOLS = [
-    {
-        "type": "function",
-        "function": {
-            "name": "run_command",
-            "description": "在电脑上执行一条 shell 命令并返回输出结果。Windows 使用 cmd/PowerShell 语法（如 dir），Linux/Docker 使用 bash 语法（如 ls -la）。",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "command": {
-                        "type": "string",
-                        "description": "要执行的 shell 命令，例如 ls -la",
-                    }
-                },
-                "required": ["command"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "read_file",
-            "description": "读取指定文本文件的完整内容。",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "path": {"type": "string", "description": "文件绝对路径"},
-                },
-                "required": ["path"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "write_file",
-            "description": "将内容写入指定文件（覆盖已有内容）。",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "path": {"type": "string", "description": "文件绝对路径"},
-                    "content": {"type": "string", "description": "要写入的内容"},
-                },
-                "required": ["path", "content"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "list_directory",
-            "description": "列出指定目录下的文件和子目录。",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "path": {"type": "string", "description": "目录绝对路径，默认当前目录"},
-                },
-                "required": ["path"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "get_system_info",
-            "description": "获取操作系统基本信息（平台、主机名、当前目录等）。",
-            "parameters": {
-                "type": "object",
-                "properties": {},
-            },
-        },
-    },
-]
 
 
 class CustomChatLLM(Star):
@@ -1043,26 +967,7 @@ class CustomChatLLM(Star):
     def session_key(self, event: AstrMessageEvent) -> tuple:
         return (event.get_platform_id(), event.get_group_id(), event.get_sender_id())
 
-    def is_computer_authorized(self, event: AstrMessageEvent) -> bool:
-        """检查是否有电脑操作权限，增加额外的安全检查"""
-        if not self.config.get("enable_computer_permission", False):
-            return False
-        
-        # 检查是否为管理员
-        if event.is_admin():
-            return True
-        
-        # 检查用户是否在授权列表中（必须）
-        uid = event.get_sender_id()
-        authorized = self.config.get("authorized_user_ids", []) or []
-        if not str(uid) in [str(x) for x in authorized]:
-            return False
-        
-        # 平台限制：只允许在特定平台上使用电脑操作权限
-        platform_id = event.get_platform_id()
-        allowed_platforms = ["aiocqhttp"]
-        
-        return any(platform in platform_id.lower() for platform in allowed_platforms)
+
 
     # ===================== 长期记忆 =====================
 
@@ -1377,24 +1282,7 @@ class CustomChatLLM(Star):
             logger.warning(f"获取 AstrBot 默认模型失败: {e}")
             return None
 
-    def _build_toolset(self, tools: list | None) -> Any:
-        """将 OpenAI 格式工具定义转换为 AstrBot ToolSet。"""
-        if not tools:
-            return None
-        from astrbot.core.agent.tool import FunctionTool, ToolSet
 
-        toolset = ToolSet()
-        for t in tools:
-            fn = t.get("function", {}) if isinstance(t, dict) else {}
-            toolset.add_tool(
-                FunctionTool(
-                    name=fn.get("name", ""),
-                    description=fn.get("description", ""),
-                    parameters=fn.get("parameters", {"type": "object", "properties": {}}),
-                    handler=None,
-                )
-            )
-        return toolset
 
     async def _call_llm_via_provider(
         self,
@@ -1416,144 +1304,16 @@ class CustomChatLLM(Star):
             kwargs["model"] = model
         llm_resp = await self.context.llm_generate(
             chat_provider_id=provider_id,
-            tools=self._build_toolset(tools),
+            tools=None,
             **kwargs,
         )
         message: dict[str, Any] = {
             "role": "assistant",
             "content": (llm_resp.completion_text or None),
         }
-        if llm_resp.tools_call_args:
-            message["tool_calls"] = llm_resp.to_openai_tool_calls()
         return {"choices": [{"message": message}]}
 
-    def _is_safe_command(self, command: str) -> bool:
-        """检查命令是否安全，只允许安全的命令"""
-        if not command or not isinstance(command, str):
-            return False
-        
-        # 移除危险的命令：这些命令可能被用来执行任意代码或进行网络攻击
-        allowed_commands = [
-            'ls', 'dir', 'pwd', 'cd', 'echo', 'cat', 'head', 'tail', 'less', 'more',
-            'find', 'grep', 'wc', 'sort', 'uniq', 'awk', 'sed', 'cut', 'tr',
-            'stat', 'file', 'which', 'where', 'type',
-            'ping', 'netstat', 'ss', 'lsof', 'ps', 'top', 'htop', 'df', 'du',
-            'mkdir', 'rmdir', 'touch', 'cp', 'mv', 'ln',
-            'tar', 'zip', 'unzip', 'gzip', 'gunzip', 'bzip2', 'bunzip2',
-            'jq', 'yq'
-        ]
-        
-        # 检查命令是否在白名单中
-        first_word = command.split()[0] if command.split() else ""
-        if first_word not in allowed_commands:
-            return False
-        
-        # 检查是否包含危险字符（包括换行符和引号）
-        dangerous_chars = ['|', '&', ';', '>', '<', '`', '$(', '${', '&&', '||', '>>', '<<',
-                          '\n', '\r', "'", '"', '$']
-        for char in dangerous_chars:
-            if char in command:
-                return False
-        
-        # 检查是否包含危险命令
-        dangerous_patterns = [
-            'rm -rf', 'dd if=', 'mkfs', 'fdisk', 'format', 'del /f',
-            'shutdown', 'reboot', 'halt', 'poweroff', 'systemctl stop',
-            'iptables', 'ufw', 'firewall', 'chmod 777', 'chown root',
-            'curl', 'wget', 'ssh', 'scp', 'nc', 'netcat', 'python', 'node',
-            'eval', 'exec', 'bash', 'sh ', 'cmd', 'powershell'
-        ]
-        for pattern in dangerous_patterns:
-            if pattern in command.lower():
-                return False
-        
-        return True
-    
-    def _is_safe_file_path(self, path: str, read_only: bool = True) -> bool:
-        """检查文件路径是否安全，只允许操作特定目录下的文件"""
-        if not path or not isinstance(path, str):
-            return False
-        
-        # 转换为绝对路径
-        abs_path = os.path.abspath(path)
-        
-        # 获取允许的目录
-        if read_only:
-            # 读取操作：允许插件目录和临时目录
-            allowed_dirs = [
-                os.path.dirname(os.path.abspath(__file__)),  # 插件目录
-                tempfile.gettempdir(),  # 临时目录
-                '/tmp', '/var/tmp'  # 其他常见临时目录
-            ]
-        else:
-            # 写入操作：只允许临时目录
-            allowed_dirs = [
-                tempfile.gettempdir(),  # 临时目录
-                '/tmp', '/var/tmp'  # 其他常见临时目录
-            ]
-        
-        # 检查路径是否在允许的目录下
-        for allowed_dir in allowed_dirs:
-            if abs_path.startswith(allowed_dir):
-                return True
-        
-        return False
-    
-    async def _execute_tool(self, name: str, args: dict) -> str:
-        """执行电脑操作工具，返回结果文本。"""
-        try:
-            if name == "run_command":
-                command = str(args.get("command", ""))
-                # 安全检查：只允许安全的命令
-                if not self._is_safe_command(command):
-                    return "错误：命令不在允许列表中，无法执行"
-                proc = await asyncio.create_subprocess_shell(
-                    command,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.STDOUT,
-                    cwd=os.getcwd(),
-                )
-                try:
-                    out, _ = await asyncio.wait_for(proc.communicate(), timeout=30)
-                except asyncio.TimeoutError:
-                    proc.kill()
-                    return "命令执行超时（30秒）"
-                return (out or b"").decode("utf-8", errors="ignore")[:2000] or "(无输出)"
-            if name == "read_file":
-                p = str(args.get("path", ""))
-                # 安全检查：只允许读取特定目录下的文件
-                if not self._is_safe_file_path(p, read_only=True):
-                    return "错误：文件路径不在允许范围内，无法读取"
-                if not os.path.isfile(p):
-                    return f"文件不存在: {p}"
-                with open(p, "r", encoding="utf-8", errors="ignore") as f:
-                    return f.read()[:2000]
-            if name == "write_file":
-                p = str(args.get("path", ""))
-                content = str(args.get("content", ""))
-                # 安全检查：只允许写入特定目录下的文件
-                if not self._is_safe_file_path(p, read_only=False):
-                    return "错误：文件路径不在允许范围内，无法写入"
-                with open(p, "w", encoding="utf-8") as f:
-                    f.write(content)
-                return f"已写入 {p}"
-            if name == "list_directory":
-                p = str(args.get("path", os.getcwd()))
-                if not os.path.isdir(p):
-                    return f"目录不存在: {p}"
-                return "\n".join(os.listdir(p)[:200])
-            if name == "get_system_info":
-                os_info = platform.platform()
-                shell = "cmd / PowerShell" if os.name == "nt" else "bash / sh"
-                return (
-                    f"os: {os_info}\n"
-                    f"cwd: {os.getcwd()}\n"
-                    f"hostname: {platform.node() or 'unknown'}\n"
-                    f"shell: {shell}"
-                )
-            return f"未知工具: {name}"
-        except Exception as e:
-            return f"工具执行出错: {e}"
+
 
     async def chat_with_llm(
         self,
@@ -1565,32 +1325,13 @@ class CustomChatLLM(Star):
         allow_tools: bool = False,
     ) -> str:
         messages = self._build_messages(system_prompt, history, user_msg)
-        tools = COMPUTER_TOOLS if (allow_tools and self.is_computer_authorized(event)) else None
         # 模型由 provider 解析决定（默认采用 AstrBot 配置），自定义 API 直连模式在 _call_llm 内取插件配置的模型
         model = None
-        for _ in range(5):  # 最多 5 轮工具调用
-            data = await self._call_llm(messages, model=model, tools=tools, is_vision=is_vision)
-            if not data.get("choices"):
-                raise RuntimeError("模型未返回有效内容")
-            message = data["choices"][0].get("message", {})
-            tool_calls = message.get("tool_calls")
-            if not tool_calls:
-                return (message.get("content") or "").strip()
-            # 执行工具调用
-            messages.append({"role": "assistant", "content": message.get("content"), "tool_calls": tool_calls})
-            for tc in tool_calls:
-                fn = tc.get("function", {})
-                name = fn.get("name", "")
-                args = {}
-                try:
-                    args = json.loads(fn.get("arguments") or "{}")
-                except Exception:
-                    args = {}
-                result = await self._execute_tool(name, args)
-                messages.append(
-                    {"role": "tool", "tool_call_id": tc.get("id", ""), "content": result}
-                )
-        return "（工具调用轮数过多，已停止）"
+        data = await self._call_llm(messages, model=model, tools=None, is_vision=is_vision)
+        if not data.get("choices"):
+            raise RuntimeError("模型未返回有效内容")
+        message = data["choices"][0].get("message", {})
+        return (message.get("content") or "").strip()
 
     # ===================== 命令处理 =====================
 
@@ -1599,7 +1340,6 @@ class CustomChatLLM(Star):
         '''查看Edge_TTS功能菜单'''
         chat_enable = await self.get_kv_data(f"{PLUGIN_NAME}:chat_switch", True)
         memory_status = "✅开启" if self.config.get("enable_long_memory", True) else "❌关闭"
-        computer_status = "✅开启" if self.config.get("enable_computer_permission", False) else "❌关闭"
         tts_status = "✅开启" if self.config.get("tts_enable", True) else "❌关闭"
         await self._ensure_personas()
         cur = self._find_persona(self.config.get("persona", ""))
@@ -1629,7 +1369,6 @@ class CustomChatLLM(Star):
             f"识图模型：{'✅开启' if self.config.get('vision_model_enable', True) else '❌关闭'}\n"
             f"长期记忆：{memory_status}\n"
             f"Edge语音TTS：{tts_status}\n"
-            f"电脑操作权限：{computer_status}\n"
             f"当前人格：{cur_name}\n"
             "\n"
             "群聊：@机器人唤醒会话，2分钟内无需重复@\n"
@@ -2579,7 +2318,7 @@ class CustomChatLLM(Star):
         else:
             user_msg = text
 
-        # 调用 LLM（允许电脑工具调用）
+        # 调用 LLM
         try:
             content = await self.chat_with_llm(
                 event,
@@ -2587,7 +2326,6 @@ class CustomChatLLM(Star):
                 history,
                 user_msg,
                 is_vision=chat_is_vision,
-                allow_tools=True,
             )
         except Exception as e:
             logger.error(f"请求模型失败: {e}")
@@ -2770,7 +2508,7 @@ class CustomChatLLM(Star):
                 "chat_enable": bool(chat_enable),
                 "persona_id": self.config.get("persona", ""),
                 "persona_name": status_persona_name,
-                "computer_permission": self.config.get("enable_computer_permission", False),
+
                 "long_memory": self.config.get("enable_long_memory", True),
                 "memory_count": total_memory,
                 "favorability": self.config.get("enable_favorability", False),
@@ -2853,7 +2591,6 @@ class CustomChatLLM(Star):
             "vision_model",
             "vision_model_enable",
             "persona", "hide_ai_identity", "use_astrbot_default_persona", "astrbot_persona",
-            "enable_computer_permission", "authorized_user_ids",
             "enable_long_memory", "memory_recall_count", "auto_save_memory",
             "group_image_reply", "enable_emoji_analysis", "enable_facial_expression",
             "gif_first_frame",
