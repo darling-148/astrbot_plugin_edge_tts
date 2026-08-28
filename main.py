@@ -254,6 +254,15 @@ EMOJI_MEANINGS = {
     "🚘": "敞篷车，潇洒拉风", "🚙": "SUV越野车，户外霸气", "🚚": "货车，运输载货",
 }
 
+# 表情包图片识别的文件名/URL 特征关键词
+EMOJI_FILE_KEYWORDS = [
+    "emoji", "sticker", "face", "qq_emoji", "emoji_", "qqface",
+    "meme", "biaoqing", "表情", "梗图", "贴纸",
+]
+
+# 卡通/可爱风格图片特征关键词
+CARTOON_STYLE_KEYWORDS = ["cartoon", "cute", "anime", "chibi", "mascot", "卡通", "可爱", "动漫", "二次元"]
+
 # Edge TTS 中文音色（value 为 Edge TTS 音色标识，label 为细化的中文描述）
 TTS_VOICES = [
     {"value": "af-ZA-AdriNeural", "label": "阿德里 · 南非荷兰语(南非) 女声", "group": "国外"},
@@ -1322,7 +1331,6 @@ class CustomChatLLM(Star):
         history: list[dict],
         user_msg: Any,
         is_vision: bool = False,
-        allow_tools: bool = False,
     ) -> str:
         messages = self._build_messages(system_prompt, history, user_msg)
         # 模型由 provider 解析决定（默认采用 AstrBot 配置），自定义 API 直连模式在 _call_llm 内取插件配置的模型
@@ -1709,16 +1717,16 @@ class CustomChatLLM(Star):
             
             # 根据文件名或URL特征判断是否为表情包
             if path or url:
-                check_path = path if path else url
-                # 表情包常见特征：文件名包含emoji、sticker、face等关键词
-                if any(keyword in check_path.lower() for keyword in ["emoji", "sticker", "face", "qq_emoji", "emoji_"]):
+                check_path = (path if path else url).lower()
+                # 表情包常见特征：文件名包含emoji、sticker、face、meme、表情等关键词
+                if any(keyword in check_path for keyword in EMOJI_FILE_KEYWORDS):
                     is_emoji = True
             
             # 检测卡通/可爱风格（先于表情包判断，适用于所有图片）
             is_cartoon_style = False
             if path or url:
-                check_path = path if path else url
-                if any(keyword in check_path.lower() for keyword in ["cartoon", "cute", "anime", "chibi", "mascot"]):
+                check_path = (path if path else url).lower()
+                if any(keyword in check_path for keyword in CARTOON_STYLE_KEYWORDS):
                     is_cartoon_style = True
             
             if is_emoji:
@@ -1728,9 +1736,9 @@ class CustomChatLLM(Star):
                 if emoji_text:
                     image_type_desc = f"表情包({emoji_text})"
                 
-                # 检测卡通/可爱风格表情包
-                if is_cartoon_style:
-                    image_type_desc = image_type_desc.replace("表情包", "卡通可爱风格表情包")
+                # 检测卡通/可爱风格表情包（保持"表情包"前缀，便于后续 startswith 判断）
+                if is_cartoon_style and "卡通" not in image_type_desc:
+                    image_type_desc = image_type_desc.replace("表情包", "表情包·卡通可爱风格", 1)
             
             # 提取图片URL（用于识图）
             if url.startswith(("http://", "https://")):
@@ -1985,8 +1993,8 @@ class CustomChatLLM(Star):
                             
                             # 检查是否为表情包
                             if path or url:
-                                check_path = path if path else url
-                                if any(keyword in check_path.lower() for keyword in ["emoji", "sticker", "face", "qq_emoji", "emoji_"]):
+                                check_path = (path if path else url).lower()
+                                if any(keyword in check_path for keyword in EMOJI_FILE_KEYWORDS):
                                     emoji_text = self._guess_emoji_meaning(url, path)
                                     if emoji_text:
                                         return f"表情包({emoji_text})"
@@ -1996,11 +2004,77 @@ class CustomChatLLM(Star):
         
         return ""
 
+    _VISION_LABEL_PAT = re.compile(
+        r"(?P<label>图片描述|表情描述|图片文字|图中的文字|图中文字|图片类型|"
+        r"类型|分类|判断|文字|文本|字幕|描述|含义)\s*[:：]\s*"
+        r"(?P<value>(?:(?!(?:图片描述|表情描述|图片文字|图中的文字|图中文字|图片类型|"
+        r"类型|分类|判断|文字|文本|字幕|描述|含义)\s*[:：]).)*)"
+    )
+
+    @classmethod
+    def _parse_vision_fields(cls, content: str) -> dict[str, str]:
+        """解析识图模型输出中的"类型/文字/描述"字段（支持多行与同行混合输出）。
+
+        返回 label -> 值 的字典，仅保留首次出现的字段。
+        """
+        fields: dict[str, str] = {}
+        for m in cls._VISION_LABEL_PAT.finditer(content):
+            label = m.group("label")
+            if label in fields:
+                continue
+            value = m.group("value").strip().strip('"\'“”‘’').strip().rstrip("，,;；。")
+            fields[label] = value
+        return fields
+
+    @staticmethod
+    def _is_no_text_value(value: str) -> bool:
+        """判断识图结果中提取的"文字"字段是否表示图片中无文字。
+
+        用于过滤"无/无文字/没有文字/图中无文字"等表达，
+        避免把"无"字原样传给对话模型。
+        """
+        if not value:
+            return True
+        v = value.strip().lower()
+        if v in (
+            "无", "无字", "无文字", "无文本", "无文案", "无字幕", "无文字内容",
+            "无任何文字", "没有", "没有文字", "没有字", "没有文本", "没有文案",
+            "图中无文字", "图中没有文字", "图片中无文字", "图片中没有文字",
+            "画面无文字", "画面没有文字", "图上无文字", "图上没有文字", "图片无文字",
+            "无内容", "无任何文字内容", "没有文字内容", "留空", "空",
+            "none", "null", "n/a", "na", "-",
+        ):
+            return True
+        # 包含"无文字/没有文字"等关键表达（如"图中无文字"、"没有任何文字"）
+        if any(k in v for k in ("无文字", "没有文字", "无任何文字", "没有字", "图中无", "图中没有")):
+            return True
+        # 去掉常见修饰词后无剩余有效内容，视为无文字
+        cleaned = (
+            v.replace("无", "").replace("没有", "").replace("文字", "").replace("内容", "")
+            .replace("任何", "").replace("图中", "").replace("图片", "").replace("画面", "")
+            .replace("图上", "").replace("字", "").replace("文本", "").replace("文案", "")
+        )
+        return cleaned.strip() == ""
+
+    @staticmethod
+    def _classify_vision_type(value: str) -> str:
+        """把识图模型输出的类型描述归类为"表情包"或"普通图片"。"""
+        v = value.lower()
+        if any(k in v for k in (
+            "表情包", "梗图", "贴纸", "表情", "卡通", "动漫", "可爱",
+            "漫画", "meme", "sticker", "emoji", "搞笑",
+        )):
+            return "表情包"
+        if any(k in v for k in ("普通图片", "真实照片", "普通照片", "截图", "风景", "文档", "照片", "普通")):
+            return "普通图片"
+        return ""
+
     async def _recognize_image_type(self, image_urls: list[str]) -> tuple[str, str]:
         """用识图模型看懂图片，区分是表情包还是其他图片。
 
-        卡通/动漫/可爱风格等默认归类为表情包；识别成功后返回约 20 字的
-        图片描述（重点描述人物面部表情与情绪），供对话模型理解用户发送的表情。
+        卡通/动漫/可爱风格等默认归类为表情包；识别成功后返回 30 字以内的
+        表情描述（优先提取表情包内文字，无文字时重点描述人物面部表情与情绪），
+        供对话模型理解用户发送的表情。
 
         Args:
             image_urls: 图片 URL 列表（远程 URL 或 base64 data URL）
@@ -2008,7 +2082,7 @@ class CustomChatLLM(Star):
         Returns:
             tuple[str, str]: (图片类型, 图片描述)
             - 图片类型: "表情包" 或 "普通图片" 或 ""
-            - 图片描述: 约 20 字以内的描述文字；识别失败时为空字符串
+            - 图片描述: 30 字以内的描述文字；识别失败时为空字符串
         """
         if not image_urls:
             return "", ""
@@ -2020,22 +2094,22 @@ class CustomChatLLM(Star):
                     "text": (
                         "请仔细观察这张图片，并回答以下问题：\n"
                         "1. 它是表情包还是普通图片？卡通/动漫/可爱风格、网络梗图、"
-                        "搞笑表情等一律算表情包；真实照片、截图、风景、文档等算普通图片。\n"
-                        "2. 如果表情包中带有文字，请完整提取图中的文字内容（文字越完整越好）。\n"
-                        "3. 如果没有文字或文字很少，用不超过20个字描述这张图片的内容，"
-                        "重点观察图中人物（或拟人角色）的面部表情与情绪"
-                        "（如开心、大笑、难过、生气、惊讶、委屈、尴尬、翻白眼等）。\n"
-                        "请按如下格式回答：\n"
+                        "搞笑表情、贴纸等一律算表情包；真实照片、截图、风景、文档等算普通图片。\n"
+                        "2. 如果图片中带有文字，请完整提取图中的文字内容（文字越完整越好）。\n"
+                        "3. 如果图片没有文字，请明确填\"无\"，然后重点描述图中人物"
+                        "（或拟人角色）的面部表情与情绪（如开心、大笑、难过、生气、惊讶、"
+                        "委屈、尴尬、翻白眼等），描述控制在30字以内。\n"
+                        "请严格按照以下格式逐行回答：\n"
                         "类型：表情包（或普通图片）\n"
-                        "文字：<图中的文字内容，无文字则留空>\n"
-                        "描述：<20字以内>"
+                        "文字：<图中的文字内容，没有文字则填\"无\">\n"
+                        "描述：<30字以内的表情/情绪描述>"
                     ),
                 },
                 {"type": "image_url", "image_url": {"url": prepared_url}},
             ]
             data = await self._call_llm(
                 [
-                    {"role": "system", "content": "你是一个图片分类与表情识别助手，简洁准确地判断图片类型并识别面部表情。"},
+                    {"role": "system", "content": "你是一个图片分类与表情识别助手，简洁准确地判断图片类型并识别面部表情与情绪。"},
                     {"role": "user", "content": user_content},
                 ],
                 is_vision=True,
@@ -2046,38 +2120,45 @@ class CustomChatLLM(Star):
             logger.debug(f"识图模型图片识别结果: {content[:100]}")
             if not content:
                 return "", ""
+            fields = self._parse_vision_fields(content)
+
             # 解析类型
             img_type = ""
-            if "表情包" in content:
-                img_type = "表情包"
-            elif "普通图片" in content:
-                img_type = "普通图片"
-            # 解析文字：优先提取表情包内的文字内容
-            img_text = ""
-            for line in content.splitlines():
-                if "文字" in line:
-                    candidate = line.split("文字", 1)[-1].lstrip("：: ")
-                    if candidate and candidate not in ("无", "无文字", "没有", "无文字内容", "留空", "空"):
-                        img_text = candidate.strip()
+            for label in ("图片类型", "类型", "分类", "判断"):
+                if label in fields:
+                    img_type = self._classify_vision_type(fields[label])
                     break
-            # 解析描述：优先取"描述："后面的内容
+            if not img_type:
+                img_type = self._classify_vision_type(content)
+
+            # 解析表情包内的文字（"无文字"类表达会被过滤，避免把"无"传给对话模型）
+            img_text = ""
+            for label in ("图片文字", "图中的文字", "图中文字", "文字", "文本", "字幕"):
+                if label in fields and not self._is_no_text_value(fields[label]):
+                    img_text = fields[label]
+                    break
+
+            # 解析描述
             desc = ""
-            for line in content.splitlines():
-                if "描述" in line:
-                    desc = line.split("描述", 1)[-1].lstrip("：: ")
+            for label in ("图片描述", "表情描述", "描述", "含义"):
+                if label in fields:
+                    desc = fields[label]
                     break
             if not desc:
-                # 去掉"类型"和"文字"行后取剩余内容
+                # 去掉"类型/文字/描述"标记后的剩余内容作为兜底描述
                 lines = [
                     l for l in content.splitlines()
-                    if "类型" not in l and "文字" not in l and l.strip()
+                    if not self._VISION_LABEL_PAT.search(l) and l.strip()
                 ]
-                desc = " ".join(lines)
-            # 表情包带文字时，优先返回图片内的文字，让对话模型理解梗意
+                desc = " ".join(l.strip() for l in lines)
+
+            # 表情包带文字时优先用图内文字；否则用表情/情绪描述
             if img_text:
                 desc = img_text
-            elif len(desc) > 20:
-                desc = desc[:20]
+            # 统一控制在30字以内，避免超长文字干扰对话模型
+            desc = desc.strip().strip('"\'“”‘’').strip()
+            if len(desc) > 30:
+                desc = desc[:30]
             return img_type, desc
         except Exception as e:
             logger.error(f"识图模型识别图片类型失败: {e}")
@@ -2255,14 +2336,22 @@ class CustomChatLLM(Star):
             user_msg = memory_prompt + "用户@了你，请用符合你人格的方式自然回复。注意不要提及\"被@\"或\"被提及\"这类事，就像普通聊天一样直接回应对方。"
         elif is_vision:
             # 先用识图模型看懂图片，区分是表情包还是其他图片
-            # 卡通/动漫/可爱风格等默认归类为表情包，识别结果约20字传给对话模型理解
+            # 卡通/动漫/可爱风格等默认归类为表情包，识别结果（30字内）传给对话模型理解
             vision_type, vision_desc = await self._recognize_image_type(image_urls)
             logger.debug(f"识图模型判断图片类型: '{vision_type}', 描述: '{vision_desc}'")
             # 识图模型判断为表情包（含卡通图），或文件名特征暗示表情包时
             is_meme = vision_type == "表情包" or image_type_desc.startswith("表情包")
             if is_meme:
-                # 表情包场景：优先将提取出的表情包文字（含面部表情描述）传给对话模型理解，不传原图
-                desc_text = vision_desc or (image_type_desc[3:] if image_type_desc.startswith("表情包(") else "一个表情")
+                # 表情包场景：优先将识图模型识别出的表情描述（面部表情/情绪/图内文字）传给对话模型理解，不传原图
+                desc_text = vision_desc
+                if not desc_text:
+                    # 兜底：从文件名特征猜测的表情包描述中提取含义
+                    m = re.search(r"[（(]([^（）()]+)[)）]", image_type_desc)
+                    desc_text = m.group(1) if m else "一个表情"
+                # 统一控制在30字内，避免超长描述干扰对话模型
+                desc_text = desc_text.strip()
+                if len(desc_text) > 30:
+                    desc_text = desc_text[:30]
                 if text:
                     user_msg = [
                         {"type": "text", "text": f"{memory_prompt}用户发送了一个表情包：{desc_text}。用户还说了：{text}。表情包中的文字或表情含义是重点，请据此给予自然贴切的回复，语气呼应图片传达的感情。"},
@@ -2535,12 +2624,17 @@ class CustomChatLLM(Star):
         sel_persona = await self._get_astrbot_persona()
         config["astrbot_current_persona"] = sel_persona.get("name") or ""
         
+        # 标识自定义 API Key 是否已配置，供控制界面以掩码占位显示（不泄露真实 Key）
+        has_api_key = bool(
+            str(config.get("api_key") or "") or str(config.get("chat_api_key") or "")
+        )
         # 移除敏感信息，防止 API key 泄露
         sensitive_keys = ["api_key", "chat_api_key", "vision_api_key", "chat_api_base_url", 
                           "vision_api_base_url", "custom_api_base_url", "custom_api_key"]
         for key in sensitive_keys:
             if key in config:
-                config[key] = "" if key.endswith("key") else ""
+                config[key] = ""
+        config["api_key_set"] = has_api_key
         
         return json_response(config)
 
@@ -2605,7 +2699,8 @@ class CustomChatLLM(Star):
             if key in payload:
                 if key in ("api_key",):
                     new_key = str(payload[key]).strip()
-                    if new_key and "*" not in new_key:
+                    # 掩码占位（含 * 或 •）视为未改动，保留已保存的 Key
+                    if new_key and "*" not in new_key and "•" not in new_key:
                         self.config[key] = new_key
                     elif not new_key:
                         self.config[key] = ""
@@ -2622,6 +2717,15 @@ class CustomChatLLM(Star):
             return error_response(f"保存失败: {e}")
         # 保存成功后立即返回最新配置，确保界面同步
         config = dict(self.config)
+        has_api_key = bool(
+            str(config.get("api_key") or "") or str(config.get("chat_api_key") or "")
+        )
+        # 返回的配置同样脱敏，避免真实 Key 回显到界面
+        for key in ("api_key", "chat_api_key", "vision_api_key", "chat_api_base_url",
+                    "vision_api_base_url", "custom_api_base_url", "custom_api_key"):
+            if key in config:
+                config[key] = ""
+        config["api_key_set"] = has_api_key
         await self._ensure_personas()
         config["personas"] = self.personas
         config["tts_voices"] = TTS_VOICES

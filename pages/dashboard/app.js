@@ -566,6 +566,17 @@ async function deletePersona(id) {
 
 // ===================== 配置 =====================
 
+// API Key 掩码占位（保存后以圆点显示，不展示明文）
+const API_KEY_MASK = "••••••••••••";
+
+// 记录自定义 API Key 是否已保存（真实 Key 仅在本页会话内临时存在，保存后一律掩码显示）
+let apiKeySet = false;
+
+function applyApiKeyMask(showMask) {
+  $("api_key").value = showMask ? API_KEY_MASK : "";
+  $("api_key").placeholder = showMask ? "已保存，输入新 Key 可替换" : "";
+}
+
 function collectConfig() {
   return {
     chat_model_enable: $("chat_model_enable").checked,
@@ -641,6 +652,12 @@ async function saveConfigKeys(keys, btn) {
   btn.disabled = true;
   try {
     await bridge.apiPost("config/save", payload);
+    if ("api_key" in payload) {
+      // 保存后立即掩码显示，避免真实 Key 停留在输入框
+      const v = $("api_key").value.trim();
+      apiKeySet = v !== "";
+      applyApiKeyMask(apiKeySet);
+    }
     showToast("✅ 配置已保存");
     loadStatus();
   } catch (e) {
@@ -652,7 +669,9 @@ async function saveConfigKeys(keys, btn) {
 
 function applyConfig(config) {
   $("api_base_url").value = config.api_base_url || config.chat_api_base_url || "";
-  $("api_key").value = config.api_key || config.chat_api_key || "";
+  // API Key 掩码显示：已配置则以圆点占位，避免明文展示
+  apiKeySet = Boolean(config.api_key_set);
+  applyApiKeyMask(apiKeySet);
   $("chat_model").value = config.chat_model || "";
   $("vision_model").value = config.vision_model || "";
   setSwitch("chat_model_enable", config.chat_model_enable);

@@ -126,20 +126,6 @@
     "hint": "开启后 AI 不承认自己是 AI/机器人，语气更口语化、自然拟态；关闭则允许明确 AI 身份",
     "invisible": true
   },
-  "enable_computer_permission": {
-    "description": "允许 AI 使用电脑（工具调用）",
-    "type": "bool",
-    "default": false,
-    "hint": "开启后 AI 可通过工具调用在本机执行命令/读写文件，仅对已授权用户生效，请谨慎开启",
-    "invisible": true
-  },
-  "authorized_user_ids": {
-    "description": "可使用电脑权限的用户ID列表",
-    "type": "list",
-    "default": [],
-    "hint": "填入允许触发电脑操作的用户 ID（如 QQ 号），留空表示仅管理员",
-    "invisible": true
-  },
   "enable_long_memory": {
     "description": "启用长期记忆",
     "type": "bool",
