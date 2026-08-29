@@ -136,6 +136,7 @@
       .field textarea:focus {
         border-color: var(--primary);
       }
+
       .field input:disabled,
       .field select:disabled,
       .field textarea:disabled {
@@ -658,19 +659,28 @@
               <option value="text_voice">文字 + 语音</option>
             </select>
           </div>
-          <div class="field">
-            <label>音色</label>
-            <select id="tts_voice"></select>
-            <span class="hint">支持 324 种音色（含中文音色与方言），描述均为中文</span>
-          </div>
-          <div class="field">
-            <label>语速（0.5 - 2.0）</label>
-            <input id="tts_speed" type="number" min="0.5" max="2" step="0.1" />
-          </div>
-          <div class="field">
-            <label>回复最大字符数（文字与语音同步）</label>
-            <input id="tts_max_length" type="number" min="50" max="1000" />
-          </div>
+           <div class="field">
+             <label>音色</label>
+             <select id="tts_voice"></select>
+             <span class="hint">支持 324 种音色（含中文音色与方言），描述均为中文</span>
+           </div>
+            <div class="field">
+              <label>语速（0.5 - 2.0）</label>
+              <input id="tts_speed" type="range" min="0.5" max="2" step="0.1" value="1.0" />
+              <span class="hint">当前语速：<span id="tts_speed_value">1.0</span></span>
+            </div>
+            <div class="field">
+              <label>音调（-50Hz ~ +50Hz）</label>
+              <input id="tts_pitch" type="range" min="-50" max="50" step="1" value="0" />
+              <span class="hint">当前音调：<span id="tts_pitch_value">0Hz</span></span>
+            </div>
+
+
+
+           <div class="field">
+             <label>回复最大字符数（文字与语音同步）</label>
+             <input id="tts_max_length" type="number" min="50" max="1000" />
+           </div>
         </div>
         <div class="actions" style="margin-top: 16px">
           <button class="btn" id="btnSaveVoice">保存语音配置</button>

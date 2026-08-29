@@ -583,6 +583,15 @@
     "hint": "数字越大语速越快",
     "invisible": true
   },
+  "tts_pitch": {
+    "description": "语音音调（-50Hz ~ +50Hz）",
+    "type": "string",
+    "default": "",
+    "hint": "控制语音音调高低，负值降低音调，正值提高音调，如：-10Hz、+10Hz",
+    "invisible": true
+  },
+
+
   "tts_max_length": {
     "description": "回复最大字符数",
     "type": "int",

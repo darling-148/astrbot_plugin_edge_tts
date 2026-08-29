@@ -626,6 +626,8 @@ DEFAULT_CONFIG = {
     "tts_mode": "text_voice",
     "tts_voice": "zh-CN-XiaoyiNeural",
     "tts_speed": 1.0,
+    "tts_pitch": "",
+    "tts_pitch": "",
     "tts_max_length": 300,
     "max_log": 14,
     "on_thinking": True,
@@ -1074,9 +1076,34 @@ class CustomChatLLM(Star):
         logger.debug(f"使用语音: {voice}")
         
         try:
+            # 处理语速
             rate_val = max(0.6, min(1.4, float(self.config.get("tts_speed", 1.0))))
             rate_str = f"{'+' if rate_val >= 1 else '-'}{abs(round((rate_val - 1) * 100))}%"
             logger.debug(f"语音速度: {rate_val} ({rate_str})")
+            
+            # 处理音调（转换为Hz格式）
+            pitch_val = self.config.get("tts_pitch", "")
+            if pitch_val:
+                # 如果用户输入的是百分比格式，转换为Hz（如+10% -> +50Hz）
+                if pitch_val.endswith("%"):
+                    percent = float(pitch_val[:-1])
+                    pitch_val = f"{percent * 5:.0f}Hz"
+                logger.debug(f"语音音调: {pitch_val}")
+            
+
+            
+
+            
+            # 构建语音参数
+            communicate_params = {
+                "rate": rate_str,
+            }
+            if pitch_val:
+                communicate_params["pitch"] = pitch_val
+            
+
+            
+            logger.debug(f"最终语音参数: {communicate_params}")
             
             # 兼容 Windows/Linux：使用系统临时目录（W11 下为 %TEMP%）
             tts_dir = os.path.join(tempfile.gettempdir(), "custom_chat_llm_tts")
@@ -1084,7 +1111,7 @@ class CustomChatLLM(Star):
             out_path = os.path.join(tts_dir, f"tts_{uuid.uuid4().hex}.mp3")
             logger.debug(f"语音文件将保存到: {out_path}")
             
-            communicate = edge_tts.Communicate(clean, voice, rate=rate_str)
+            communicate = edge_tts.Communicate(clean, voice, **communicate_params)
             await communicate.save(out_path)
             
             if os.path.exists(out_path):

@@ -608,6 +608,9 @@ function collectConfig() {
     tts_mode: $("tts_mode").value,
     tts_voice: $("tts_voice").value,
     tts_speed: parseFloat($("tts_speed").value) || 1.0,
+    tts_pitch: $("tts_pitch").value || "",
+
+
     tts_max_length: parseInt($("tts_max_length").value, 10) || 300,
     memory_recall_count: parseInt($("memory_recall_count").value, 10) || 3,
     session_expire_seconds: parseInt($("session_expire_seconds").value, 10) || 120,
@@ -705,7 +708,12 @@ function applyConfig(config) {
   setSwitch("tts_enable", config.tts_enable);
   $("tts_mode").value = config.tts_mode || "text_voice";
   fillVoices(config.tts_voice);
+
   $("tts_speed").value = config.tts_speed || 1.0;
+  $("tts_speed_value").textContent = config.tts_speed || 1.0;
+  const pitchValue = config.tts_pitch || "";
+  $("tts_pitch").value = pitchValue ? parseInt(pitchValue) : 0;
+  $("tts_pitch_value").textContent = pitchValue || "0Hz";
   $("tts_max_length").value = config.tts_max_length || 300;
   $("memory_recall_count").value = config.memory_recall_count || 3;
   $("session_expire_seconds").value = config.session_expire_seconds || 120;
@@ -1018,6 +1026,16 @@ $("btnTestAstrbot").addEventListener("click", async () => {
 });
 
 $("custom_model_enable").addEventListener("change", updateCustomModelFields);
+
+// 语速和音调滑动条实时显示数值
+$("tts_speed").addEventListener("input", (e) => {
+  $("tts_speed_value").textContent = parseFloat(e.target.value).toFixed(1);
+});
+
+$("tts_pitch").addEventListener("input", (e) => {
+  const val = parseInt(e.target.value);
+  $("tts_pitch_value").textContent = val === 0 ? "0Hz" : (val > 0 ? `+${val}Hz` : `${val}Hz`);
+});
 
 const COMPANION_KEYS = [
   "enable_favorability",
