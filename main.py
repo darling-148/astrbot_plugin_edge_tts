@@ -1087,6 +1087,9 @@ class CustomChatLLM(Star):
                 if pitch_val.endswith("%"):
                     percent = float(pitch_val[:-1])
                     pitch_val = f"{percent * 5:.0f}Hz"
+                # 如果用户输入的是纯数字（不带单位），添加Hz单位
+                elif pitch_val.replace("-", "").replace("+", "").isdigit():
+                    pitch_val = f"{pitch_val}Hz"
                 logger.debug(f"语音音调: {pitch_val}")
             
 
@@ -1626,7 +1629,11 @@ class CustomChatLLM(Star):
                     event._reply_image_type = reply_image_type
         
         if not text and not has_image:
-            # 纯@机器人（无文字）也允许响应，不直接返回
+            # 私聊中无文字无图片的消息（如"还在输入中"事件）直接忽略，避免误触发
+            if event.is_private_chat():
+                logger.debug(f"[Edge_TTS] 私聊空消息（无文字无图片），跳过")
+                return
+            # 群聊中纯@机器人（无文字）仍允许响应
             pass
         chat_enable = await self.get_kv_data(f"{PLUGIN_NAME}:chat_switch", True)
         if not chat_enable:
