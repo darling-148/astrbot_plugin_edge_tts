@@ -971,6 +971,7 @@ const VOICE_KEYS = [
   "tts_mode",
   "tts_voice",
   "tts_speed",
+  "tts_pitch",
   "tts_max_length",
 ];
 
