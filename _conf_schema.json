@@ -583,6 +583,8 @@
     "hint": "数字越大语速越快",
     "invisible": true
   },
+
+
   "tts_max_length": {
     "description": "回复最大字符数",
     "type": "int",
@@ -602,6 +604,13 @@
     "type": "bool",
     "default": true,
     "hint": "开启后向模型发送深度思考指令（需模型支持深度思考，部分模型不支持）",
+    "invisible": true
+  },
+  "enable_noprefix_command": {
+    "description": "群聊引用唤醒词",
+    "type": "bool",
+    "default": true,
+    "hint": "跟随AstrBot唤醒词",
     "invisible": true
   },
   "session_expire_seconds": {

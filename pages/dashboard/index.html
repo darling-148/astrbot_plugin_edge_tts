@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Edge_TTS</title>
+    <title>Edge TTS</title>
     <style>
       :root {
         --bg: #f5f6fa;
@@ -507,7 +507,7 @@
   <body>
     <div class="container">
       <header>
-        <h1>Edge_TTS</h1>
+        <h1>Edge TTS</h1>
         <div class="status-pills" id="statusPills"></div>
       </header>
 
@@ -669,10 +669,13 @@
               <input id="tts_speed" type="range" min="0.5" max="2" step="0.1" value="1.0" />
               <span class="hint">当前语速：<span id="tts_speed_value">1.0</span></span>
             </div>
+
+
+
             <div class="field">
-              <label>回复最大字符数（文字与语音同步）</label>
-              <input id="tts_max_length" type="number" min="50" max="1000" />
-            </div>
+             <label>回复最大字符数（文字与语音同步）</label>
+             <input id="tts_max_length" type="number" min="50" max="1000" />
+           </div>
         </div>
         <div class="actions" style="margin-top: 16px">
           <button class="btn" id="btnSaveVoice">保存语音配置</button>
@@ -717,6 +720,13 @@
             <span class="hint">开启后未被@时，机器人也会偶尔根据群聊上下文主动插话回复</span>
           </div>
           <label class="switch"><input type="checkbox" id="enable_proactive_chat" /><span class="slider"></span></label>
+        </div>
+        <div class="switch-row">
+          <div class="info">
+            群聊引用唤醒词
+            <span class="hint">跟随AstrBot唤醒词，当前 <span id="current_wake_words" style="background:var(--primary);color:#fff;padding:1px 6px;border-radius:4px;font-size:11px;">-</span>；/开头唤醒词走/指令</span>
+          </div>
+          <label class="switch"><input type="checkbox" id="enable_noprefix_command" /><span class="slider"></span></label>
         </div>
         <div class="field" style="margin-top: 12px">
           <label>群聊插话频率</label>

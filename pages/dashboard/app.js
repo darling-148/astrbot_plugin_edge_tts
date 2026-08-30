@@ -406,6 +406,11 @@ function renderStatus(status) {
   if (eff) eff.textContent = status.chat_model || status.model || "未配置";
   const effV = $("effectiveVisionModel");
   if (effV) effV.textContent = status.vision_model || "未配置";
+  const ww = $("current_wake_words");
+  if (ww) {
+    const prefixes = Array.isArray(status.at_prefixes) ? status.at_prefixes : [];
+    ww.textContent = prefixes.length ? prefixes.join("、") : "未读取";
+  }
   const items = [
     { label: "总开关", on: status.chat_enable },
     { label: "TTS 语音", on: status.tts_enable },
@@ -597,6 +602,7 @@ function collectConfig() {
     enable_facial_expression: $("enable_facial_expression").checked,
     ignore_mention_others: $("ignore_mention_others").checked,
     enable_proactive_chat: $("enable_proactive_chat").checked,
+    enable_noprefix_command: $("enable_noprefix_command").checked,
     enable_favorability: $("enable_favorability").checked,
     enable_private_companion: $("enable_private_companion").checked,
     master_user_ids: ($("master_user_ids").value || "")
@@ -608,6 +614,7 @@ function collectConfig() {
     tts_mode: $("tts_mode").value,
     tts_voice: $("tts_voice").value,
     tts_speed: parseFloat($("tts_speed").value) || 1.0,
+
 
     tts_max_length: parseInt($("tts_max_length").value, 10) || 300,
     memory_recall_count: parseInt($("memory_recall_count").value, 10) || 3,
@@ -696,6 +703,7 @@ function applyConfig(config) {
   setSwitch("enable_facial_expression", config.enable_facial_expression);
   setSwitch("ignore_mention_others", config.ignore_mention_others);
   setSwitch("enable_proactive_chat", config.enable_proactive_chat);
+  setSwitch("enable_noprefix_command", config.enable_noprefix_command);
   setSwitch("enable_favorability", config.enable_favorability);
   setSwitch("enable_private_companion", config.enable_private_companion);
   $("master_user_ids").value = (config.master_user_ids || []).join(",");
@@ -708,7 +716,8 @@ function applyConfig(config) {
   fillVoices(config.tts_voice);
 
   $("tts_speed").value = config.tts_speed || 1.0;
-  $("tts_speed_value").textContent = config.tts_speed || 1.0;
+  const speedVal = parseFloat(config.tts_speed) || 1.0;
+  $("tts_speed_value").textContent = speedVal.toFixed(1);
   $("tts_max_length").value = config.tts_max_length || 300;
   $("memory_recall_count").value = config.memory_recall_count || 3;
   $("session_expire_seconds").value = config.session_expire_seconds || 120;
@@ -978,6 +987,7 @@ const MEMORY_KEYS = [
   "enable_facial_expression",
   "ignore_mention_others",
   "enable_proactive_chat",
+  "enable_noprefix_command",
   "proactive_chat_frequency",
   "session_expire_seconds",
   "max_log",
@@ -1022,7 +1032,7 @@ $("btnTestAstrbot").addEventListener("click", async () => {
 
 $("custom_model_enable").addEventListener("change", updateCustomModelFields);
 
-// 语速滑动条实时显示数值
+// 语速和音调滑动条实时显示数值
 $("tts_speed").addEventListener("input", (e) => {
   $("tts_speed_value").textContent = parseFloat(e.target.value).toFixed(1);
 });

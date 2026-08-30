@@ -1078,7 +1078,7 @@ class CustomChatLLM(Star):
             rate_val = max(0.6, min(1.4, float(self.config.get("tts_speed", 1.0))))
             rate_str = f"{'+' if rate_val >= 1 else '-'}{abs(round((rate_val - 1) * 100))}%"
             logger.debug(f"语音速度: {rate_val} ({rate_str})")
-            
+
             # 构建语音参数
             communicate_params = {
                 "rate": rate_str,
@@ -1225,6 +1225,44 @@ class CustomChatLLM(Star):
         except Exception as e:
             logger.error(f"读取 AstrBot 配置文件失败: {e}")
             return {}
+
+    def _get_wake_prefixes(self) -> list[str]:
+        """读取 AstrBot 配置文件（cmd_config.json）中的全局唤醒前缀 wake_prefix。
+
+        Returns:
+            唤醒词前缀列表，如 ["/"]；未配置或读取失败时返回空列表。
+        """
+        try:
+            from astrbot.core.config.astrbot_config import ASTRBOT_CONFIG_PATH
+
+            with open(ASTRBOT_CONFIG_PATH, "r", encoding="utf-8-sig") as f:
+                data = json.load(f)
+            prefixes = data.get("wake_prefix", [])
+            if not isinstance(prefixes, list):
+                prefixes = [prefixes] if prefixes else []
+            return [p for p in prefixes if p and p.strip()]
+        except Exception as e:
+            logger.error(f"读取 AstrBot 唤醒前缀失败: {e}")
+            return []
+
+    def _get_at_prefixes(self, platform_id: str) -> list[str]:
+        """从 AstrBot 配置文件中读取全局唤醒词前缀列表（wake_prefix）。
+
+        Args:
+            platform_id: 平台标识，保留参数以兼容调用方。
+
+        Returns:
+            唤醒词前缀列表，如 ["/"]；未找到或读取失败时返回空列表。
+        """
+        return self._get_wake_prefixes()
+
+    def _get_all_at_prefixes(self) -> list[str]:
+        """返回 AstrBot 配置文件中配置的唤醒词前缀列表（去重、保序）。
+
+        Returns:
+            去重后的唤醒词前缀列表；无配置时返回空列表。
+        """
+        return self._get_wake_prefixes()
 
     def _astrbot_ai_enable(self) -> bool:
         """读取 AstrBot 配置文件中的"AI 对话总开关"（provider_settings.enable）。
@@ -1389,7 +1427,15 @@ class CustomChatLLM(Star):
             f"Edge语音TTS：{tts_status}\n"
             f"当前人格：{cur_name}\n"
             "\n"
-            "群聊：@机器人唤醒会话，2分钟内无需重复@\n"
+        )
+        # 动态获取群聊唤醒词前缀
+        try:
+            at_prefixes = self._get_at_prefixes(event.get_platform_id())
+        except Exception:
+            at_prefixes = []
+        menu += f"群聊唤醒词：{'、'.join(at_prefixes) if at_prefixes else '-'}（跟随AstrBot配置）\n"
+        menu += (
+            "群聊：使用唤醒词唤醒会话，2分钟内无需重复唤醒\n"
             "私聊：直接发送消息对话\n"
             "更详细的 API 地址/模型/人格库/音色等配置，请在管理面板的插件控制界面中修改。"
         )
@@ -1572,8 +1618,14 @@ class CustomChatLLM(Star):
             in_group = event.get_group_id() is not None
             if in_group and not event.is_private_chat():
                 # 群聊中带/指令：检查是否@了机器人，没@则不拦截，放行给其他插件
+                platform_id = event.get_platform_id()
+                at_prefixes = self._get_at_prefixes(platform_id)
                 is_at_bot_now = any(
                     isinstance(comp, At) and str(getattr(comp, "qq", "")) == str(event.get_self_id())
+                    for comp in messages
+                ) or any(
+                    isinstance(comp, Plain)
+                    and str(getattr(comp, "text", "") or "").strip().startswith(tuple(at_prefixes))
                     for comp in messages
                 )
                 if not is_at_bot_now:
@@ -1634,10 +1686,25 @@ class CustomChatLLM(Star):
 
         # 群聊：判断是否@机器人或处于会话窗口内（2分钟）
         self_id = event.get_self_id()
+        platform_id = event.get_platform_id()
+        at_prefixes = self._get_at_prefixes(platform_id)
+        # 检测是否@了机器人
         is_at_bot = any(
             isinstance(comp, At) and str(getattr(comp, "qq", "")) == str(self_id)
             for comp in messages
         )
+        # 开关开启时，额外支持前缀唤醒词
+        enable_noprefix = self.config.get("enable_noprefix_command", True)
+        is_wake_prefix = (
+            not is_command
+            and enable_noprefix
+            and any(
+                isinstance(comp, Plain)
+                and str(getattr(comp, "text", "") or "").strip().startswith(tuple(at_prefixes))
+                for comp in messages
+            )
+        ) if at_prefixes else False
+        is_at_bot = is_at_bot or is_wake_prefix
         # 群聊图片直答：开启后群里发送图片无需@机器人也会自动识别
         group_image_auto = bool(self.config.get("group_image_reply", False)) and (has_image or reply_has_image)
         # 群聊引用图片特殊处理：如果用户引用了图片且@了机器人，即使没有文字也会回复
@@ -1666,13 +1733,30 @@ class CustomChatLLM(Star):
             for comp in messages
         ):
             return
-        if is_at_bot:
-            self.active_sessions[key] = now + session_expire
-            logger.info(f"[Edge_TTS] 检测到@机器人，准备响应语音回复 - text: '{text}', has_image: {has_image}, 模式:{self.config.get('tts_mode', 'text_voice')}")
+        if is_at_bot and self.config.get("enable_noprefix_command", True):
+            # 开关开启时：如果会话已激活则直接响应（视为续聊），否则先唤醒
+            if is_session_active:
+                logger.debug("[Edge_TTS] 会话已激活，直接响应消息（续聊模式）")
+                await self._do_chat(event)
+                event.stop_event()
+                return
+            logger.info("[Edge_TTS] 检测到唤醒词，准备响应 — 用户已唤醒，请自由发挥")
             await self._do_chat(event)
             event.stop_event()  # 阻止 AstrBot 默认对话响应
             logger.info("[Edge_TTS] 已调用 stop_event 阻止默认对话")
             return
+
+        # 开关关闭时：拦截并屏蔽唤醒前缀（阻止 AstrBot 系统也响应），仅保留 @ 唤醒
+        if not self.config.get("enable_noprefix_command", True) and at_prefixes:
+            is_wake_prefix_match = any(
+                isinstance(comp, Plain)
+                and str(getattr(comp, "text", "") or "").strip().startswith(tuple(at_prefixes))
+                for comp in messages
+            )
+            if is_wake_prefix_match:
+                logger.debug(f"[Edge_TTS] 唤醒词开关已关闭，拦截唤醒前缀消息，阻止 AstrBot 系统响应")
+                event.stop_event()
+                return
         if group_image_auto or quoted_image_reply:
             self.active_sessions[key] = now + session_expire
             await self._do_chat(event)
@@ -2347,7 +2431,7 @@ class CustomChatLLM(Star):
         chat_is_vision = is_vision
         if is_only_at:
             logger.info("[Edge_TTS] 纯@机器人场景，让模型自由回复")
-            user_msg = memory_prompt + "用户@了你，请用符合你人格的方式自然回复。注意不要提及\"被@\"或\"被提及\"这类事，就像普通聊天一样直接回应对方。"
+            user_msg = memory_prompt + "自由回复，请用符合你人格的方式自由发挥自然回复。"
         elif is_vision:
             # 先用识图模型看懂图片，区分是表情包还是其他图片
             # 卡通/动漫/可爱风格等默认归类为表情包，识别结果（30字内）传给对话模型理解
@@ -2616,6 +2700,8 @@ class CustomChatLLM(Star):
                 "memory_count": total_memory,
                 "favorability": self.config.get("enable_favorability", False),
                 "session_expire_seconds": self.config.get("session_expire_seconds", 120),
+                "enable_noprefix_command": self.config.get("enable_noprefix_command", True),
+                "at_prefixes": self._get_all_at_prefixes(),
                 "model": chat_effective,
                 "chat_model": chat_effective,
                 "vision_model": vision_effective,
@@ -2704,6 +2790,7 @@ class CustomChatLLM(Star):
             "gif_first_frame",
             "ignore_mention_others",
             "enable_proactive_chat", "proactive_chat_frequency",
+            "enable_noprefix_command",
             "tts_enable", "tts_mode", "tts_voice", "tts_speed", "tts_max_length",
             "max_log", "on_thinking", "session_expire_seconds",
             "enable_favorability", "favorability_default",
