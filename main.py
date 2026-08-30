@@ -626,7 +626,6 @@ DEFAULT_CONFIG = {
     "tts_mode": "text_voice",
     "tts_voice": "zh-CN-XiaoyiNeural",
     "tts_speed": 1.0,
-    "tts_pitch": "",
     "tts_max_length": 300,
     "max_log": 14,
     "on_thinking": True,
@@ -1080,31 +1079,10 @@ class CustomChatLLM(Star):
             rate_str = f"{'+' if rate_val >= 1 else '-'}{abs(round((rate_val - 1) * 100))}%"
             logger.debug(f"语音速度: {rate_val} ({rate_str})")
             
-            # 处理音调（转换为Hz格式）
-            pitch_val = self.config.get("tts_pitch", "")
-            if pitch_val:
-                # 如果用户输入的是百分比格式，转换为Hz（如+10% -> +50Hz）
-                if pitch_val.endswith("%"):
-                    percent = float(pitch_val[:-1])
-                    pitch_val = f"{percent * 5:.0f}Hz"
-                # 如果用户输入的是纯数字（不带单位），添加Hz单位（正数加+前缀）
-                elif pitch_val.replace("-", "").replace("+", "").isdigit():
-                    if pitch_val.isdigit():
-                        pitch_val = f"+{pitch_val}Hz"
-                    else:
-                        pitch_val = f"{pitch_val}Hz"
-                logger.debug(f"语音音调: {pitch_val}")
-            
-
-            
-
-            
             # 构建语音参数
             communicate_params = {
                 "rate": rate_str,
             }
-            if pitch_val:
-                communicate_params["pitch"] = pitch_val
             
 
             
@@ -2726,7 +2704,7 @@ class CustomChatLLM(Star):
             "gif_first_frame",
             "ignore_mention_others",
             "enable_proactive_chat", "proactive_chat_frequency",
-            "tts_enable", "tts_mode", "tts_voice", "tts_speed", "tts_pitch", "tts_max_length",
+            "tts_enable", "tts_mode", "tts_voice", "tts_speed", "tts_max_length",
             "max_log", "on_thinking", "session_expire_seconds",
             "enable_favorability", "favorability_default",
             "enable_private_companion", "master_user_ids", "avoid_intimate_non_master",
