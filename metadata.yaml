@@ -2,7 +2,7 @@ name: astrbot_plugin_edge_tts
 display_name: Edge TTS
 desc: 基于 Microsoft Edge TTS 的聊天陪护语音插件，支持自定义大模型，需要安装ffmpeg, 全部配置请在插件的 WebUI 控制界面中修改。
 icon: logo.png
-version: 3.0.1
+version: 3.0.2
 category: 语音
 author: darling-148
 repo: https://github.com/darling-148/astrbot_plugin_edge_tts.git

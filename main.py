@@ -1047,8 +1047,30 @@ class CustomChatLLM(Star):
         if not self.config.get("tts_enable", True):
             logger.debug("TTS 功能已禁用")
             return None
-            
+
         clean = text.replace("\n", " ").replace("#", "").replace("*", "").replace("`", "")
+        # 移除纯表情/情感/动作提示类括号（语音），其他括号内容保留
+        # 长词优先（含修饰语），单字/短词其次；避免"笑"单独出现导致"哈哈大笑"误匹配
+        _emo_long = (
+            '微微一笑|撇嘴|冷笑|奸笑|坏笑|偷笑|嬉笑|尬笑|憨笑|傻笑|咧嘴笑|'
+            '仰天大笑|捧腹大笑|眉开眼笑|笑逐颜开|喜笑颜开|'
+            '眉头紧锁|愁眉不展|蹙眉|眨眼睛|耸肩|飞吻|么么哒|洋洋得意|'
+            '唉声叹气|冷汗直流|大汗淋漓|泪如雨下|泪流满面|潸然泪下|'
+            '痛哭流涕|呆若木鸡|怒发冲冠|怒气冲冲|咬牙切齿|大惊失色|'
+            '一脸委屈|楚楚可怜|一阵无语|无言以对|相对无言|两手一摊|'
+            '一脸无奈|无可奈何|冷眼|蔑视|故作傲娇'
+        )
+        _emo_short = (
+            '微笑|撇嘴|冷笑|奸笑|坏笑|偷笑|嬉笑|尬笑|憨笑|傻笑|'
+            '皱眉|蹙眉|眨眼|点头|摇头|摊手|捂脸|挥手|鞠躬|'
+            '鼓掌|拍手|拥抱|抱抱|亲亲|飞吻|鄙视|得意|傲娇|委屈|'
+            '无奈|无语|叹气|冒汗|冷汗|晕乎乎|黑线|石化|发呆|发愣|'
+            '愤怒|暴怒|惊呆|流泪|落泪|哭泣|哭'
+        )
+        clean = re.sub(rf'[（\(][^\)）]*?(?:{_emo_long})[^\)）]*?[）\)]', '', clean)
+        clean = re.sub(rf'[（\(](?:{_emo_short})[）\)]', '', clean)
+        clean = re.sub(rf'\([^\)]*?(?:{_emo_long})[^\)]*?\)', '', clean)
+        clean = re.sub(rf'\((?:{_emo_short})\)', '', clean)
         clean = " ".join(clean.split())
         
         # 特殊处理：如果文本为空但有图片，使用默认描述
@@ -1557,6 +1579,7 @@ class CustomChatLLM(Star):
         "记忆列表": ("show_memory_list", False),
         "清空长期记忆": ("clear_long_memory", False),
         "语音开关": ("toggle_tts", False),
+        "语音模式": ("set_tts_mode", True),
         "人格列表": ("list_personas_cmd", False),
         "删除记忆": ("delete_memory_cmd", True),
         "设置模型": ("set_model", True),
