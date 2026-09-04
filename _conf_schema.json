@@ -154,13 +154,6 @@
     "hint": "开启后群里发送图片无需@机器人即可自动识别图片；关闭时群里需@机器人或在会话窗口内才会识别",
     "invisible": true
   },
-  "enable_emoji_analysis": {
-    "description": "消息 Emoji 表情识别",
-    "type": "bool",
-    "default": true,
-    "hint": "开启后自动识别用户消息中的常见 Emoji 表情及其含义，让 AI 在回复语气中自然呼应",
-    "invisible": true
-  },
   "enable_facial_expression": {
     "description": "图片人脸表情识别",
     "type": "bool",
@@ -585,13 +578,6 @@
   },
 
 
-  "tts_max_length": {
-    "description": "回复最大字符数",
-    "type": "int",
-    "default": 300,
-    "hint": "超过该长度的回复会被截断，文字输出与语音播报同步生效",
-    "invisible": true
-  },
   "max_log": {
     "description": "上下文最大轮数",
     "type": "int",

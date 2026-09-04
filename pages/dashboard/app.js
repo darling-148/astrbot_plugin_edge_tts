@@ -598,7 +598,6 @@ function collectConfig() {
     enable_long_memory: $("enable_long_memory").checked,
     auto_save_memory: $("auto_save_memory").checked,
     group_image_reply: $("group_image_reply").checked,
-    enable_emoji_analysis: $("enable_emoji_analysis").checked,
     enable_facial_expression: $("enable_facial_expression").checked,
     ignore_mention_others: $("ignore_mention_others").checked,
     enable_proactive_chat: $("enable_proactive_chat").checked,
@@ -614,9 +613,6 @@ function collectConfig() {
     tts_mode: $("tts_mode").value,
     tts_voice: $("tts_voice").value,
     tts_speed: parseFloat($("tts_speed").value) || 1.0,
-
-
-    tts_max_length: parseInt($("tts_max_length").value, 10) || 300,
     memory_recall_count: parseInt($("memory_recall_count").value, 10) || 3,
     session_expire_seconds: parseInt($("session_expire_seconds").value, 10) || 120,
     max_log: parseInt($("max_log").value, 10) || 14,
@@ -699,7 +695,6 @@ function applyConfig(config) {
   setSwitch("enable_long_memory", config.enable_long_memory);
   setSwitch("auto_save_memory", config.auto_save_memory);
   setSwitch("group_image_reply", config.group_image_reply);
-  setSwitch("enable_emoji_analysis", config.enable_emoji_analysis);
   setSwitch("enable_facial_expression", config.enable_facial_expression);
   setSwitch("ignore_mention_others", config.ignore_mention_others);
   setSwitch("enable_proactive_chat", config.enable_proactive_chat);
@@ -718,7 +713,6 @@ function applyConfig(config) {
   $("tts_speed").value = config.tts_speed || 1.0;
   const speedVal = parseFloat(config.tts_speed) || 1.0;
   $("tts_speed_value").textContent = speedVal.toFixed(1);
-  $("tts_max_length").value = config.tts_max_length || 300;
   $("memory_recall_count").value = config.memory_recall_count || 3;
   $("session_expire_seconds").value = config.session_expire_seconds || 120;
   $("max_log").value = config.max_log || 14;
@@ -975,7 +969,6 @@ const VOICE_KEYS = [
   "tts_mode",
   "tts_voice",
   "tts_speed",
-  "tts_max_length",
 ];
 
 
@@ -983,7 +976,6 @@ const VOICE_KEYS = [
 const MEMORY_KEYS = [
   "memory_recall_count",
   "group_image_reply",
-  "enable_emoji_analysis",
   "enable_facial_expression",
   "ignore_mention_others",
   "enable_proactive_chat",
@@ -994,49 +986,6 @@ const MEMORY_KEYS = [
   "on_thinking",
 ];
 
-$("btnSaveModel").addEventListener("click", async () => {
-  await saveConfigKeys(MODEL_KEYS, $("btnSaveModel"));
-});
-
-async function testModelStatus(target, btn) {
-  btn.disabled = true;
-  try {
-    const res = await bridge.apiPost("model_status", { target });
-    const items = res.items || [];
-    for (let i = 0; i < items.length; i++) {
-      const it = items[i];
-      const ok = Boolean(it.enabled && it.connected);
-      if (ok) {
-        showToast(`${it.name}：${it.message}`, false, true);
-      } else {
-        showToast(`${it.name}：${it.message}`, false, false, true);
-      }
-      if (i < items.length - 1) {
-        await new Promise((r) => setTimeout(r, 1600));
-      }
-    }
-  } catch (e) {
-    showToast("测试失败：" + e.message, true);
-  } finally {
-    btn.disabled = false;
-  }
-}
-
-$("btnTestCustom").addEventListener("click", async () => {
-  await testModelStatus("custom", $("btnTestCustom"));
-});
-
-$("btnTestAstrbot").addEventListener("click", async () => {
-  await testModelStatus("astrbot", $("btnTestAstrbot"));
-});
-
-$("custom_model_enable").addEventListener("change", updateCustomModelFields);
-
-// 语速和音调滑动条实时显示数值
-$("tts_speed").addEventListener("input", (e) => {
-  $("tts_speed_value").textContent = parseFloat(e.target.value).toFixed(1);
-});
-
 const COMPANION_KEYS = [
   "enable_favorability",
   "favorability_default",
@@ -1044,6 +993,11 @@ const COMPANION_KEYS = [
   "master_user_ids",
   "avoid_intimate_non_master",
 ];
+
+// 模型配置保存按钮
+$("btnSaveModel").addEventListener("click", async () => {
+  await saveConfigKeys(MODEL_KEYS, $("btnSaveModel"));
+});
 
 $("btnSaveCompanion").addEventListener("click", async () => {
   await saveConfigKeys(COMPANION_KEYS, $("btnSaveCompanion"));
