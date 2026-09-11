@@ -1634,6 +1634,8 @@ class CustomChatLLM(Star):
                 event.stop_event()
                 return
             logger.info("[Edge_TTS] 检测到唤醒词，准备响应 — 用户已唤醒，请自由发挥")
+            # 激活会话，确保后续续聊能正常响应
+            self.active_sessions[key] = now + session_expire
             await self._do_chat(event)
             event.stop_event()  # 阻止 AstrBot 默认对话响应
             logger.info("[Edge_TTS] 已调用 stop_event 阻止默认对话")
