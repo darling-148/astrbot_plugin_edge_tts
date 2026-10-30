@@ -641,7 +641,8 @@
       <div class="card view" data-view="voice">
         <h2>语音（Edge TTS）</h2>
         <div style="font-size: 16px; line-height: 1.5; margin-bottom: 10px">
-          使用帮助 · 其他国家文字转语音：可在回复对话框对 AI 模型说「和我对话用英语」让模型用对应语言回复，并在下方手动选择对应国家的音色播报。注意：需要你的模型足够聪明（需模型支持该语言回复）。建议搭配相应的国家人格文字介绍，可让 AI 更好地理解自己扮演的角色给予回复。
+          使用帮助 · 其他国家文字转语音：可在回复对话框对 AI 模型说「和我对话用英语」让模型用对应语言回复，并在下方手动选择对应国家的音色播报。注意：需要你的模型足够聪明（需模型支持该语言回复）。建议搭配相应的国家人格文字介绍，可让 AI 更好地理解自己扮演的角色给予回复。 语音生成接入修复 
+          注意⚠️:如无法使用EdgeTTS,可在astrbot模型提供商,文字转语音模型添加模型测试EdgeTTS是否链接正常，后续可删除也可保留使用。
         </div>
         <div class="switch-row">
           <div class="info">
@@ -662,7 +663,7 @@
            <div class="field">
              <label>音色</label>
              <select id="tts_voice"></select>
-             <span class="hint">支持 324 种音色（含中文音色与方言），描述均为中文</span>
+              <span class="hint">支持 320 种音色（含中文音色与方言），描述均为中文</span>
            </div>
             <div class="field">
               <label>语速（0.5 - 2.0）</label>

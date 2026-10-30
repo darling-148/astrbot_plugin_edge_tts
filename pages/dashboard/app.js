@@ -730,6 +730,34 @@ function updateCustomModelFields() {
   if (btn) btn.disabled = enabled;
 }
 
+async function showTestResult(items) {
+  const lines = items.map((it) => {
+    const icon = it.connected ? "OK" : "X";
+    return `${icon} ${it.name}${it.model ? " (" + it.model + ")" : ""}: ${it.message}`;
+  });
+  const msg = lines.join("\n");
+  const hasError = items.some((it) => !it.connected);
+  showToast(msg, hasError, true);
+}
+
+$("btnTestCustom").addEventListener("click", async () => {
+  try {
+    const data = await bridge.apiPost("model_status", { target: "custom" });
+    showTestResult(data.items || []);
+  } catch (e) {
+    showToast("Teste falhou: " + e.message, true);
+  }
+});
+
+$("btnTestAstrbot").addEventListener("click", async () => {
+  try {
+    const data = await bridge.apiPost("model_status", { target: "astrbot" });
+    showTestResult(data.items || []);
+  } catch (e) {
+    showToast("Teste falhou: " + e.message, true);
+  }
+});
+
 async function loadStatus() {
   try {
     const status = await bridge.apiGet("status");
@@ -1074,6 +1102,11 @@ $("use_astrbot_default_persona").addEventListener("change", () => {
     const p = personas.find((x) => x.id === $("persona").value);
     updateCurrentPersonaName(p ? p.name : "-");
   }
+});
+
+$("tts_speed").addEventListener("input", () => {
+  const speedVal = parseFloat($("tts_speed").value) || 1.0;
+  $("tts_speed_value").textContent = speedVal.toFixed(1);
 });
 
 $("btnCancelPersona").addEventListener("click", closePersonaForm);
