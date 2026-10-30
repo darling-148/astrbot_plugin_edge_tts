@@ -237,7 +237,7 @@
     "invisible": true
   },
   "tts_voice": {
-    "description": "支持 324 音色（完整中文描述在控制界面选择）",
+    "description": "支持 320 音色（完整中文描述在控制界面选择）",
     "type": "string",
     "default": "zh-CN-XiaoyiNeural",
     "options": [

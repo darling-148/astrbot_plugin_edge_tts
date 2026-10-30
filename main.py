@@ -335,10 +335,7 @@ TTS_VOICES = [
     {"value": "is-IS-GunnarNeural", "label": "贡纳尔 · 冰岛语(冰岛) 男声", "group": "国外"},
     {"value": "id-ID-ArdiNeural", "label": "阿尔迪 · 印尼语(印度尼西亚) 男声", "group": "国外"},
     {"value": "id-ID-GadisNeural", "label": "加迪斯 · 印尼语(印度尼西亚) 女声", "group": "国外"},
-    {"value": "iu-Latn-CA-SiqiniqNeural", "label": "西奇尼克 · 因纽特语(加拿大) 女声", "group": "国外"},
-    {"value": "iu-Latn-CA-TaqqiqNeural", "label": "塔奇克 · 因纽特语(加拿大) 男声", "group": "国外"},
-    {"value": "iu-Cans-CA-SiqiniqNeural", "label": "西奇尼克 · 因纽特语(加拿大) 女声", "group": "国外"},
-    {"value": "iu-Cans-CA-TaqqiqNeural", "label": "塔奇克 · 因纽特语(加拿大) 男声", "group": "国外"},
+
     {"value": "ga-IE-ColmNeural", "label": "科尔姆 · 爱尔兰语(爱尔兰) 男声", "group": "国外"},
     {"value": "ga-IE-OrlaNeural", "label": "奥拉 · 爱尔兰语(爱尔兰) 女声", "group": "国外"},
     {"value": "it-IT-GiuseppeMultilingualNeural", "label": "朱塞佩 · 意大利语(意大利) 男声", "group": "国外"},
@@ -989,7 +986,7 @@ class CustomChatLLM(Star):
             communicate = edge_tts.Communicate(clean, voice, **communicate_params)
             await communicate.save(out_path)
             
-            if os.path.exists(out_path):
+            if os.path.exists(out_path) and os.path.getsize(out_path) > 0:
                 logger.debug(f"语音文件生成成功: {out_path}")
                 return out_path
             else:
@@ -2441,8 +2438,8 @@ class CustomChatLLM(Star):
             platform_id = event.get_platform_id()
             is_weixin = "weixin" in platform_id.lower()
             
-            if is_weixin and len(chain) > 1 and isinstance(chain[0], Plain):
-                # 微信只支持文字，降级为纯文字发送
+            if is_weixin and any(isinstance(c, Record) for c in chain):
+                # 微信适配器不支持 Record 组件，降级为纯文字发送
                 try:
                     await event.send(MessageChain([chain[0]]))
                     logger.debug(f"微信适配器，已降级为纯文字发送")
