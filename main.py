@@ -757,7 +757,8 @@ class CustomChatLLM(Star):
     # ---- 记忆存储（文件管理） ----
 
     def _memory_dir(self) -> str:
-        d = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", MEMORY_DIR_NAME)
+        plugin_data_dir = self.context.get_plugin_data_dir()
+        d = os.path.join(plugin_data_dir, MEMORY_DIR_NAME)
         os.makedirs(d, exist_ok=True)
         return d
 
@@ -812,9 +813,8 @@ class CustomChatLLM(Star):
     # ---- 好感度存储（文件管理） ----
 
     def _favorability_file(self) -> str:
-        return os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), "data", "favorability.json"
-        )
+        plugin_data_dir = self.context.get_plugin_data_dir()
+        return os.path.join(plugin_data_dir, "favorability.json")
 
     async def _load_favorability(self) -> dict:
         """返回 {"user": {uid: 值}, "group": {gid: 值}}。"""
