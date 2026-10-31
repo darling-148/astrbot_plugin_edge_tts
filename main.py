@@ -20,7 +20,7 @@ import httpx
 from astrbot.api import AstrBotConfig, logger
 from astrbot.api.event import AstrMessageEvent, MessageChain, filter
 from astrbot.api.message_components import At, Image, Plain, Record, Reply
-from astrbot.api.star import Context, Star
+from astrbot.api.star import Context, Star, StarTools
 
 try:
     from astrbot.api.web import error_response, json_response, request
@@ -757,7 +757,7 @@ class CustomChatLLM(Star):
     # ---- 记忆存储（文件管理） ----
 
     def _memory_dir(self) -> str:
-        plugin_data_dir = self.context.get_plugin_data_dir()
+        plugin_data_dir = StarTools.get_data_dir("astrbot_plugin_edge_tts")
         d = os.path.join(plugin_data_dir, MEMORY_DIR_NAME)
         os.makedirs(d, exist_ok=True)
         return d
@@ -813,7 +813,7 @@ class CustomChatLLM(Star):
     # ---- 好感度存储（文件管理） ----
 
     def _favorability_file(self) -> str:
-        plugin_data_dir = self.context.get_plugin_data_dir()
+        plugin_data_dir = StarTools.get_data_dir("astrbot_plugin_edge_tts")
         return os.path.join(plugin_data_dir, "favorability.json")
 
     async def _load_favorability(self) -> dict:
